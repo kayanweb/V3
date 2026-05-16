@@ -1,0 +1,15 @@
+powershell : & : The term 'node.exe' is not recognized as the name of a cmdlet, function, script file, or operable program. Check 
+At line:1 char:1
++ powershell -ExecutionPolicy Bypass -File .\node_modules\.bin\next.ps1 ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (& : The term 'n...program. Check :String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+the spelling of the name, or if a path was included, verify that the path is correct and try again.
+At C:\Users\doctor-01\Downloads\New folder (2)\app\pronurse-v3\pronurse\node_modules\.bin\next.ps1:22 char:16
++     $input | & "node$exe"  "$basedir/../next/dist/bin/next" $args
++                ~~~~~~~~~~
+    + CategoryInfo          : ObjectNotFound: (node.exe:String) [], CommandNotFoundException
+    + FullyQualifiedErrorId : CommandNotFoundException
+ 
+

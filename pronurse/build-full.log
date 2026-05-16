@@ -1,0 +1,151 @@
+﻿Γû▓ Next.js 16.2.4 (Turbopack)
+
+  Creating an optimized production build ...
+
+node.exe : 
+At line:1 char:73
++ ... e-v24.15.0-win-x64\node.exe"; & $nodePath .\run-build.js 2>&1 | Out-F ...
++                                   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+> Build error occurred
+Error: Turbopack build failed with 5 errors:
+./app/login/page.tsx:181:13
+Expected '</', got ')'
+  [90m179 |[0m                 </[33mButton[0m>
+  [90m180 |[0m               </div>
+[31m[1m>[0m [90m181 |[0m             )}
+  [90m    |[0m             [31m[1m^[0m
+  [90m182 |[0m
+  [90m183 |[0m             {tab === [32m'google'[0m && (
+  [90m184 |[0m               <div className=[32m"space-y-4 py-2"[0m>
+
+Parsing ecmascript source code failed
+
+
+./contexts/auth-context.tsx:13:1
+Module not found: Can't resolve 'bcryptjs'
+  [90m11 |[0m } [36mfrom[0m [32m'firebase/auth'[0m
+  [90m12 |[0m [36mimport[0m { isFirebaseConfigured, getFirebaseAuth } [36mfrom[0m [32m'@/lib/firebase'[0m
+[31m[1m>[0m [90m13 |[0m [36mimport[0m bcrypt [36mfrom[0m [32m'bcryptjs'[0m
+  [90m   |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+  [90m14 |[0m [36mimport[0m {
+  [90m15 |[0m   getUserById,
+  [90m16 |[0m   saveUserProfile,
+
+
+
+Import traces:
+  Server Component:
+    ./contexts/auth-context.tsx
+    ./app/layout.tsx
+
+  Client Component Browser:
+    ./contexts/auth-context.tsx [Client Component Browser]
+    ./app/(dashboard)/admin/users/page.tsx [Client Component Browser]
+    ./app/(dashboard)/admin/users/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./contexts/auth-context.tsx [Client Component SSR]
+    ./app/(dashboard)/admin/users/page.tsx [Client Component SSR]
+    ./app/(dashboard)/admin/users/page.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+./lib/repositories/firestore/employee-credentials.repository.ts:3:1
+Module not found: Can't resolve 'bcryptjs'
+  [90m1 |[0m [36mimport[0m { doc, getDoc, setDoc } [36mfrom[0m [32m'firebase/firestore'[0m
+  [90m2 |[0m [36mimport[0m { getFirestoreDb } [36mfrom[0m [32m'@/lib/firebase'[0m
+[31m[1m>[0m [90m3 |[0m [36mimport[0m bcrypt [36mfrom[0m [32m'bcryptjs'[0m
+  [90m  |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+  [90m4 |[0m [36mimport[0m [36mtype[0m { [33mIEmployeeCredentialsRepository[0m, [33mEmployeeCredentials[0m } 
+[36mfrom[0m [32m'../contracts'[0m
+  [90m5 |[0m
+  [90m6 |[0m [36mconst[0m [33mCOL[0m = [32m'employeeCredentials'[0m
+
+
+
+Import traces:
+  Client Component Browser:
+    ./lib/repositories/firestore/employee-credentials.repository.ts [Client Component Browser]
+    ./lib/repositories/index.ts [Client Component Browser]
+    ./lib/services/users.service.ts [Client Component Browser]
+    ./app/(dashboard)/admin/users/page.tsx [Client Component Browser]
+    ./app/(dashboard)/admin/users/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./lib/repositories/firestore/employee-credentials.repository.ts [Client Component SSR]
+    ./lib/repositories/index.ts [Client Component SSR]
+    ./lib/services/users.service.ts [Client Component SSR]
+    ./app/(dashboard)/admin/users/page.tsx [Client Component SSR]
+    ./app/(dashboard)/admin/users/page.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+./components/whatsapp-send.tsx:18:1
+Export DEMO_EMPLOYEES doesn't exist in target module
+  [90m16 |[0m [36mimport[0m { toast } [36mfrom[0m [32m'sonner'[0m
+  [90m17 |[0m [36mimport[0m { useLang } [36mfrom[0m [32m'@/contexts/lang-context'[0m
+[31m[1m>[0m [90m18 |[0m [36mimport[0m { [33mDEMO_EMPLOYEES[0m } [36mfrom[0m 
+[32m'@/contexts/auth-context'[0m
+  [90m   |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+  [90m19 |[0m
+  [90m20 |[0m [36minterface[0m [33mProps[0m {
+  [90m21 |[0m   open: boolean
+
+The export DEMO_EMPLOYEES was not found in module [project]/contexts/auth-context.tsx [app-client] (ecmascript).
+Did you mean to import AuthProvider?
+All exports of the module are statically known (It doesn't have dynamic exports). So it's known statically that the 
+requested export doesn't exist.
+
+Import traces:
+  Client Component Browser:
+    ./components/whatsapp-send.tsx [Client Component Browser]
+    ./app/(dashboard)/messages/page.tsx [Client Component Browser]
+    ./app/(dashboard)/messages/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./components/whatsapp-send.tsx [Client Component SSR]
+    ./app/(dashboard)/messages/page.tsx [Client Component SSR]
+    ./app/(dashboard)/messages/page.tsx [Server Component]
+
+
+./components/whatsapp-send.tsx:18:1
+Export DEMO_EMPLOYEES doesn't exist in target module
+  [90m16 |[0m [36mimport[0m { toast } [36mfrom[0m [32m'sonner'[0m
+  [90m17 |[0m [36mimport[0m { useLang } [36mfrom[0m [32m'@/contexts/lang-context'[0m
+[31m[1m>[0m [90m18 |[0m [36mimport[0m { [33mDEMO_EMPLOYEES[0m } [36mfrom[0m 
+[32m'@/contexts/auth-context'[0m
+  [90m   |[0m [31m[1m^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^[0m
+  [90m19 |[0m
+  [90m20 |[0m [36minterface[0m [33mProps[0m {
+  [90m21 |[0m   open: boolean
+
+The export DEMO_EMPLOYEES was not found in module [project]/contexts/auth-context.tsx [app-ssr] (ecmascript).
+Did you mean to import AuthProvider?
+All exports of the module are statically known (It doesn't have dynamic exports). So it's known statically that the 
+requested export doesn't exist.
+
+Import traces:
+  Client Component Browser:
+    ./components/whatsapp-send.tsx [Client Component Browser]
+    ./app/(dashboard)/messages/page.tsx [Client Component Browser]
+    ./app/(dashboard)/messages/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./components/whatsapp-send.tsx [Client Component SSR]
+    ./app/(dashboard)/messages/page.tsx [Client Component SSR]
+    ./app/(dashboard)/messages/page.tsx [Server Component]
+
+
+    at <unknown> (./app/login/page.tsx:181:13)
+    at <unknown> (./contexts/auth-context.tsx:13:1)
+    at <unknown> (https://nextjs.org/docs/messages/module-not-found)
+    at <unknown> (./lib/repositories/firestore/employee-credentials.repository.ts:3:1)
+    at <unknown> (https://nextjs.org/docs/messages/module-not-found)
+    at <unknown> (./components/whatsapp-send.tsx:18:1)
+    at <unknown> (./components/whatsapp-send.tsx:18:1)
+
