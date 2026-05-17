@@ -225,7 +225,8 @@ export default function EmergencyCodesPage() {
           </CardHeader>
           <CardContent className="space-y-4">
             {activeCodes.map((code) => {
-              const config = codeConfig[code.type]
+              // الأمان المضاف لحل خطأ الـ TypeScript: حماية الفهرس باستخدام قيمة افتراضية وعمل Casting
+              const config = codeConfig[(code.type ?? 'blue') as EmergencyCodeType]
               const Icon = config.icon
               return (
                 <div
@@ -345,7 +346,8 @@ export default function EmergencyCodesPage() {
           ) : (
             <div className="space-y-3">
               {recentCodes.map((code) => {
-                const config = codeConfig[code.type]
+                // الأمان المضاف لحل خطأ الـ TypeScript هنا أيضاً لضمان سلامة السجل بالكامل
+                const config = codeConfig[(code.type ?? 'blue') as EmergencyCodeType]
                 const Icon = config.icon
                 return (
                   <div
