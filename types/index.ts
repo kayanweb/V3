@@ -8,7 +8,7 @@ export interface Alert {
   department: string;
   severity: 'critical' | 'warning' | 'info';
   timestamp: string;
-  [key: string]: any; // تضمن قبول أي خصائص إضافية مخصصة للـ Alert
+  [key: string]: any;
 }
 
 export type EmergencyCodeType = 'red' | 'blue' | 'black' | 'yellow' | 'white' | string;
@@ -25,7 +25,7 @@ export interface EmergencyCode {
   timestamp?: string;
   department?: string;
   calledBy?: string;
-  [key: string]: any; // الحل السحري: تقبل calledById, startTime, responders وأي شيء آخر بالصفحة!
+  [key: string]: any;
 }
 
 export interface DepartmentData {
@@ -57,4 +57,20 @@ export interface StaffMember {
   department: string;
   status: 'active' | 'absent' | 'on_call' | string;
   [key: string]: any;
+}
+
+// --- الأنواع الجديدة الخاصة بصفحة المعدات الطبية ---
+export type EquipmentStatus = 'available' | 'in_use' | 'maintenance' | 'out_of_service' | string;
+
+export interface Equipment {
+  id: string;
+  name: string;
+  nameAr?: string;
+  type?: string;
+  status: EquipmentStatus;
+  location: string;
+  department?: string;
+  lastMaintenance?: string;
+  nextMaintenance?: string;
+  [key: string]: any; // يضمن معالجة البيانات التجريبية مهما كانت خصائصها بالصفحة
 }
