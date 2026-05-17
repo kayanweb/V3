@@ -1,15 +1,18 @@
-// Assuming this is the content of app/(dashboard)/admin/users/page.tsx
-'use client';
+'use client'
 
-import { useState, useEffect, useCallback } from 'react';
+import * as React from 'react'
+import { useState, useEffect, useCallback } from 'react'
+import { useAuth } from './auth-context'
+import { updateUserPreferences, getAllUsers, UserRecord } from '@/lib/services/users.service'
+import { toast } from 'sonner'
 import {
   Card,
   CardContent,
   CardHeader,
   CardTitle,
-} from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+} from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import {
   Table,
   TableBody,
@@ -17,32 +20,34 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@/components/ui/table';
-import { Plus, Search, Loader2 } from 'lucide-react';
-import { toast } from 'sonner';
-import { getAllUsers, UserRecord } from '@/lib/services/users.service'; // Assuming these exist
+} from '@/components/ui/table'
+import { Plus, Search, Loader2 } from 'lucide-react'
 
+// ==========================================
+// 1. مكون صفحة إدارة المستخدمين (UsersPage)
+// ==========================================
 export default function UsersPage() {
-  const [users, setUsers] = useState<UserRecord[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [users, setUsers] = useState<UserRecord[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [searchQuery, setSearchQuery] = useState('')
 
   const loadUsers = useCallback(async () => {
-    setIsLoading(true);
+    setIsLoading(true)
     try {
-      const data = await getAllUsers();
-      setUsers(data);
+      const data = await getAllUsers()
+      setUsers(data)
     } catch (error) {
-      toast.error('حدث خطأ في تحميل بيانات المستخدمين من السحابة');
-      console.error(error);
-    } finally {
-      setIsLoading(false);
+      toast.error('حدث خطأ في تحميل بيانات المستخدمين من السحابة')
+      console.error(error)
+    } 
+    finally {
+      setIsLoading(false)
     }
-  }, []);
+  }, [])
 
   useEffect(() => {
-    loadUsers();
-  }, [loadUsers]);
+    loadUsers()
+  }, [loadUsers])
 
   const filteredUsers = users.filter(
     (user) =>
@@ -50,7 +55,7 @@ export default function UsersPage() {
       user.nameAr.includes(searchQuery) ||
       user.employeeCode?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       user.email.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  )
 
   return (
     <div className="space-y-6">
@@ -141,18 +146,15 @@ export default function UsersPage() {
         </CardContent>
       </Card>
     </div>
-  );
+  )
 }
-'use client'
 
-import * as React from 'react'
-import { useAuth } from './auth-context';
-import { updateUserPreferences } from '@/lib/services/users.service';
-import { toast } from 'sonner';
-
+// ==========================================
+// 2. إعدادات سياق اللغة (Language Context)
+// ==========================================
 type Lang = 'ar' | 'en'
 
-interface LangContextValue { // This interface is not used in the provided diff, assuming it's for internal context type
+interface LangContextValue {
   lang: Lang
   toggleLang: () => void
   t: (ar: string, en: string) => string
@@ -167,55 +169,45 @@ const LangContext = React.createContext<LangContextValue>({
 })
 
 export function LangProvider({ children }: { children: React.ReactNode }) {
-  const { user, isLoading: isAuthLoading, isAuthenticated } = useAuth();
-  const [lang, setLang] = React.useState<Lang>('ar')
-  const [mounted, setMounted] = React.useState(false)
+  const { user, isLoading: isAuthLoading, isAuthenticated } = useAuth()
+  const [lang, setLang] = useState<Lang>('ar')
+  const [mounted, setMounted] = useState(false)
 
   // After mount: load stored preference from user profile or default
-  React.useEffect(() => {
+  useEffect(() => {
     if (!isAuthLoading) {
-      if (isAuthenticated && user?.preferences?.language) {
-        setLang(user.preferences.language as Lang);
+      const anyUser = user as any // حل مشكلة TypeScript هنا
+      if (isAuthenticated && anyUser?.preferences?.language) {
+        setLang(anyUser.preferences.language as Lang)
       } else {
-        // Fallback to browser preference or default if no user or no preference
-        const browserLang = navigator.language.startsWith('ar') ? 'ar' : 'en';
-        setLang(browserLang);
+        const browserLang = navigator.language.startsWith('ar') ? 'ar' : 'en'
+        setLang(browserLang)
       }
     }
     setMounted(true)
-  }, [isAuthLoading, isAuthenticated, user?.preferences?.language]);
+  }, [isAuthLoading, isAuthenticated, user])
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (!mounted) return
-    // No longer storing in localStorage for application data
-    // if (isAuthenticated && user?.id) {
-    //   updateUserPreferences(user.id, { language: lang }).catch(error => {
-    //     console.error("Failed to save language preference to Firestore:", error);
-    //     toast.error("فشل حفظ تفضيل اللغة.");
-    //   });
-    // }
     const html = document.documentElement
     html.setAttribute('lang', lang === 'ar' ? 'ar' : 'en')
     html.setAttribute('dir', lang === 'ar' ? 'rtl' : 'ltr')
   }, [lang, mounted])
 
   const toggleLang = () => setLang((prev) => (prev === 'ar' ? 'en' : 'ar'))
-  const t = (ar: string, en: string) => (lang === 'ar' ? ar : en)
+  const t = useCallback((ar: string, en: string) => (lang === 'ar' ? ar : en), [lang])
   
   // Effect to save language preference to Firestore when it changes
-  React.useEffect(() => {
+  useEffect(() => {
     if (mounted && isAuthenticated && user?.id) {
       updateUserPreferences(user.id, { language: lang })
-        .then(() => {
-          // toast.success(t('تم تحديث اللغة بنجاح', 'Language updated successfully'));
-        })
         .catch(error => {
-          console.error("Failed to save language preference to Firestore:", error);
-          toast.error(t('فشل حفظ تفضيل اللغة.', 'Failed to save language preference.'));
-        });
+          console.error("Failed to save language preference to Firestore:", error)
+          toast.error(t('فشل حفظ تفضيل اللغة.', 'Failed to save language preference.'))
+        })
     }
-  }, [lang, mounted, isAuthenticated, user?.id, t]);
-  // Before mount always expose 'ar' so server + first client render match
+  }, [lang, mounted, isAuthenticated, user?.id, t])
+
   const effectiveLang: Lang = mounted ? lang : 'ar'
 
   return (

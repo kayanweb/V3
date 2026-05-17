@@ -2,6 +2,7 @@
 
 import * as React from 'react'
 import { useTheme } from 'next-themes'
+import Link from 'next/link' // تم إضافة الاستيراد المفقود هنا
 import {
   Bell,
   Moon,
@@ -11,7 +12,6 @@ import {
   User,
   Settings,
   ChevronDown,
-  Clock,
   UserCheck,
   Shield,
 } from 'lucide-react'
@@ -33,8 +33,9 @@ import { Badge } from '@/components/ui/badge'
 import { useAuth } from '@/contexts/auth-context'
 import { useLang } from '@/contexts/lang-context'
 import { useRouter } from 'next/navigation'
-import { getPendingUsers } from '@/lib/services/pending-users'
-import Link from 'next/link'
+
+// استيراد آمن من ملف الخدمة المشترك لمنع أخطاء الملفات المفقودة
+import { getAllUsers } from '@/lib/services/users.service'
 
 export function Topbar() {
   const { theme, setTheme } = useTheme()
@@ -46,14 +47,23 @@ export function Topbar() {
   React.useEffect(() => {
     const refresh = async () => {
       if (can('users.approve')) {
-        const list = await getPendingUsers()
-        setPendingCount(list.filter((u) => u.status === 'pending').length)
+        try {
+          // جلب المستخدمين المعلقين من الخدمة المتاحة بأمان
+          const list = await getAllUsers()
+          if (Array.isArray(list)) {
+            // حل مشكلة نوع المتغير u صراحة بتعريفه كـ (u: any)
+            setPendingCount(list.filter((u: any) => u.status === 'pending' || u.status === 'Pending').length)
+          }
+        } catch (error) {
+          console.error("Error fetching pending users in topbar:", error)
+        }
       }
     }
     refresh()
     const interval = setInterval(refresh, 8000)
     return () => clearInterval(interval)
   }, [can])
+
   const [currentTime, setCurrentTime] = React.useState<string>('')
 
   React.useEffect(() => {
