@@ -125,8 +125,8 @@ export default function DashboardPage() {
 
         <StatsCard
           title={isAr ? 'نسبة الإشغال' : 'Occupancy Rate'}
-          value={`${stats.occupancyRate}%`}
-          icon={Activity}
+value={stats.occupancyRate + '%'}
+icon={Activity}
           variant="primary"
           trend={{ value: 5, isPositive: true }}
         />
