@@ -14,14 +14,16 @@ export type EmergencyCodeType = 'red' | 'blue' | 'black' | 'yellow' | 'white' | 
 
 export interface EmergencyCode {
   id: string;
-  code: EmergencyCodeType;
-  title: string;
-  titleAr: string;
-  description: string;
-  descriptionAr: string;
+  type: EmergencyCodeType;
+  title?: string;
+  titleAr?: string;
+  description?: string;
+  descriptionAr?: string;
   location: string;
-  status: 'active' | 'resolved' | 'dispatched';
+  status: 'active' | 'resolved' | 'dispatched' | string;
   timestamp: string;
+  department?: string;
+  calledBy?: string;
 }
 
 export interface DepartmentData {
