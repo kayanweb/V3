@@ -1,3 +1,4 @@
+```tsx
 'use client'
 
 import {
@@ -8,6 +9,7 @@ import {
   AlertTriangle,
   Activity,
 } from 'lucide-react'
+
 import {
   Bar,
   BarChart,
@@ -26,9 +28,9 @@ import { StatsCard } from '@/components/dashboard/stats-card'
 import { useLang } from '@/contexts/lang-context'
 import { ChartCard } from '@/components/dashboard/chart-card'
 import { AlertCard } from '@/components/dashboard/alert-card'
-import { Alert } from '@/types'
+import type { Alert } from '@/types'
 
-// Demo data - will be replaced with Firebase data
+// Demo data
 const stats = {
   totalBeds: 100,
   totalPatients: 57,
@@ -92,15 +94,20 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      {/* Page Header */}
+      {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">{isAr ? 'لوحة التحكم' : 'Dashboard'}</h1>
+        <h1 className="text-2xl font-bold tracking-tight">
+          {isAr ? 'لوحة التحكم' : 'Dashboard'}
+        </h1>
+
         <p className="text-muted-foreground">
-          {isAr ? 'نظرة عامة على حالة المستشفى والإحصائيات' : 'Hospital status overview and statistics'}
+          {isAr
+            ? 'نظرة عامة على حالة المستشفى والإحصائيات'
+            : 'Hospital status overview and statistics'}
         </p>
       </div>
 
-      {/* Stats Cards */}
+      {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
         <StatsCard
           title={isAr ? 'إجمالي الأسرة' : 'Total Beds'}
@@ -108,12 +115,14 @@ export default function DashboardPage() {
           icon={Bed}
           variant="default"
         />
+
         <StatsCard
           title={isAr ? 'إجمالي المرضى' : 'Total Patients'}
           value={stats.totalPatients}
           icon={Users}
           variant="primary"
         />
+
         <StatsCard
           title={isAr ? 'نسبة الإشغال' : 'Occupancy Rate'}
           value={`${stats.occupancyRate}%`}
@@ -121,18 +130,21 @@ export default function DashboardPage() {
           variant="primary"
           trend={{ value: 5, isPositive: true }}
         />
+
         <StatsCard
           title={isAr ? 'إجمالي الكادر' : 'Total Staff'}
           value={stats.totalStaff}
           icon={UserCheck}
           variant="success"
         />
+
         <StatsCard
           title={isAr ? 'الغياب' : 'Absences'}
           value={stats.absences}
           icon={UserX}
           variant="warning"
         />
+
         <StatsCard
           title={isAr ? 'حالات العزل' : 'Isolation Cases'}
           value={stats.isolationCases}
@@ -141,9 +153,8 @@ export default function DashboardPage() {
         />
       </div>
 
-      {/* Charts Grid */}
+      {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Bar Chart - Patients per Department */}
         <ChartCard
           title="المرضى حسب الأقسام"
           subtitle="توزيع المرضى على أقسام المستشفى"
@@ -156,39 +167,52 @@ export default function DashboardPage() {
                 layout="vertical"
                 margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
               >
-                <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} />
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  horizontal
+                  vertical={false}
+                />
+
                 <XAxis type="number" />
+
                 <YAxis
                   dataKey={isAr ? 'nameAr' : 'name'}
                   type="category"
                   width={80}
                   tick={{ fontSize: 12 }}
                 />
+
                 <Tooltip
                   contentStyle={{
                     backgroundColor: 'hsl(var(--card))',
                     border: '1px solid hsl(var(--border))',
                     borderRadius: '8px',
                   }}
-                  formatter={(value: number, name: string) => [
-                    value,
-                    name === 'patients' ? 'المرضى' : name === 'beds' ? 'الأسرة' : name,
-                  ]}
                 />
-                <Legend
-                  formatter={(value) =>
-                    value === 'patients' ? 'المرضى' : value === 'beds' ? 'الأسرة' : value
-                  }
+
+                <Legend />
+
+                <Bar
+                  dataKey="patients"
+                  fill="hsl(var(--chart-1))"
+                  radius={[0, 4, 4, 0]}
                 />
-                <Bar dataKey="patients" fill="hsl(var(--chart-1))" radius={[0, 4, 4, 0]} />
-                <Bar dataKey="beds" fill="hsl(var(--chart-2))" radius={[0, 4, 4, 0]} />
+
+                <Bar
+                  dataKey="beds"
+                  fill="hsl(var(--chart-2))"
+                  radius={[0, 4, 4, 0]}
+                />
               </BarChart>
             </ResponsiveContainer>
           </div>
         </ChartCard>
 
-        {/* Pie Chart - Staff Distribution */}
-        <ChartCard title="توزيع الكادر التمريضي" subtitle="حسب المستوى الوظيفي">
+        {/* Pie */}
+        <ChartCard
+          title="توزيع الكادر التمريضي"
+          subtitle="حسب المستوى الوظيفي"
+        >
           <div className="h-[300px] mt-4">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
@@ -201,14 +225,18 @@ export default function DashboardPage() {
                   paddingAngle={5}
                   dataKey="value"
                   label={({ name, percent }) =>
-                    `${name} ${(percent * 100).toFixed(0)}%`
+                    `${name} ${((percent ?? 0) * 100).toFixed(0)}%`
                   }
                   labelLine={false}
                 >
                   {staffDistribution.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
+                    <Cell
+                      key={`cell-${index}`}
+                      fill={entry.color}
+                    />
                   ))}
                 </Pie>
+
                 <Tooltip
                   contentStyle={{
                     backgroundColor: 'hsl(var(--card))',
@@ -222,35 +250,68 @@ export default function DashboardPage() {
         </ChartCard>
       </div>
 
-      {/* Alerts Panel */}
+      {/* Alerts */}
       <AlertCard alerts={alerts} />
 
-      {/* Department Overview Table */}
-      <ChartCard title="نظرة عامة على الأقسام" subtitle="حالة كل قسم في الوقت الحالي">
+      {/* Departments */}
+      <ChartCard
+        title="نظرة عامة على الأقسام"
+        subtitle="حالة كل قسم في الوقت الحالي"
+      >
         <div className="overflow-x-auto mt-4">
           <table className="w-full">
             <thead>
               <tr className="border-b">
-                <th className="text-right py-3 px-4 font-semibold text-sm">القسم</th>
-                <th className="text-right py-3 px-4 font-semibold text-sm">الأسرة</th>
-                <th className="text-right py-3 px-4 font-semibold text-sm">المرضى</th>
-                <th className="text-right py-3 px-4 font-semibold text-sm">الممرضين</th>
-                <th className="text-right py-3 px-4 font-semibold text-sm">الإشغال</th>
-                <th className="text-right py-3 px-4 font-semibold text-sm">الحالة</th>
+                <th className="text-right py-3 px-4 font-semibold text-sm">
+                  القسم
+                </th>
+
+                <th className="text-right py-3 px-4 font-semibold text-sm">
+                  الأسرة
+                </th>
+
+                <th className="text-right py-3 px-4 font-semibold text-sm">
+                  المرضى
+                </th>
+
+                <th className="text-right py-3 px-4 font-semibold text-sm">
+                  الممرضين
+                </th>
+
+                <th className="text-right py-3 px-4 font-semibold text-sm">
+                  الإشغال
+                </th>
+
+                <th className="text-right py-3 px-4 font-semibold text-sm">
+                  الحالة
+                </th>
               </tr>
             </thead>
+
             <tbody>
               {departmentData.map((dept) => {
-                const occupancy = Math.round((dept.patients / dept.beds) * 100)
+                const occupancy = Math.round(
+                  (dept.patients / dept.beds) * 100
+                )
+
                 const isOverCapacity = dept.patients > dept.beds
                 const isHighOccupancy = occupancy >= 80
 
                 return (
-                  <tr key={dept.name} className="border-b last:border-0 hover:bg-muted/50">
-                    <td className="py-3 px-4 font-medium">{dept.nameAr}</td>
+                  <tr
+                    key={dept.name}
+                    className="border-b last:border-0 hover:bg-muted/50"
+                  >
+                    <td className="py-3 px-4 font-medium">
+                      {dept.nameAr}
+                    </td>
+
                     <td className="py-3 px-4">{dept.beds}</td>
+
                     <td className="py-3 px-4">{dept.patients}</td>
+
                     <td className="py-3 px-4">{dept.nurses}</td>
+
                     <td className="py-3 px-4">
                       <div className="flex items-center gap-2">
                         <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden max-w-[100px]">
@@ -262,12 +323,18 @@ export default function DashboardPage() {
                                 ? 'bg-warning'
                                 : 'bg-success'
                             }`}
-                            style={{ width: `${Math.min(occupancy, 100)}%` }}
+                            style={{
+                              width: `${Math.min(occupancy, 100)}%`,
+                            }}
                           />
                         </div>
-                        <span className="text-sm">{occupancy}%</span>
+
+                        <span className="text-sm">
+                          {occupancy}%
+                        </span>
                       </div>
                     </td>
+
                     <td className="py-3 px-4">
                       <span
                         className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
@@ -278,7 +345,11 @@ export default function DashboardPage() {
                             : 'bg-success/10 text-success'
                         }`}
                       >
-                        {isOverCapacity ? 'تجاوز السعة' : isHighOccupancy ? 'مرتفع' : 'طبيعي'}
+                        {isOverCapacity
+                          ? 'تجاوز السعة'
+                          : isHighOccupancy
+                          ? 'مرتفع'
+                          : 'طبيعي'}
                       </span>
                     </td>
                   </tr>
@@ -291,3 +362,4 @@ export default function DashboardPage() {
     </div>
   )
 }
+```
