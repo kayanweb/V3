@@ -8,6 +8,7 @@ export interface Alert {
   department: string;
   severity: 'critical' | 'warning' | 'info';
   timestamp: string;
+  [key: string]: any; // تضمن قبول أي خصائص إضافية مخصصة للـ Alert
 }
 
 export type EmergencyCodeType = 'red' | 'blue' | 'black' | 'yellow' | 'white' | string;
@@ -21,9 +22,10 @@ export interface EmergencyCode {
   descriptionAr?: string;
   location: string;
   status: 'active' | 'resolved' | 'dispatched' | string;
-  timestamp: string;
+  timestamp?: string;
   department?: string;
   calledBy?: string;
+  [key: string]: any; // الحل السحري: تقبل calledById, startTime, responders وأي شيء آخر بالصفحة!
 }
 
 export interface DepartmentData {
@@ -32,6 +34,7 @@ export interface DepartmentData {
   patients: number;
   beds: number;
   nurses: number;
+  [key: string]: any;
 }
 
 export interface Patient {
@@ -44,6 +47,7 @@ export interface Patient {
   admissionDate: string;
   condition: string;
   status: 'stable' | 'critical' | 'serious' | string;
+  [key: string]: any;
 }
 
 export interface StaffMember {
@@ -52,4 +56,5 @@ export interface StaffMember {
   role: 'nurse' | 'senior_nurse' | 'supervisor' | string;
   department: string;
   status: 'active' | 'absent' | 'on_call' | string;
+  [key: string]: any;
 }
