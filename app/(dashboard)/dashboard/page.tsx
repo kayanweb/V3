@@ -59,7 +59,7 @@ const staffDistribution = [
 const alerts: Alert[] = [
   {
     id: '1',
-    type: 'over_capacity',
+    type: 'warning',
     message: 'ER department is over capacity',
     messageAr: 'قسم الطوارئ تجاوز السعة المحددة (29 مريض / 11 سرير)',
     department: 'الطوارئ',
