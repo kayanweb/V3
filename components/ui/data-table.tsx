@@ -38,7 +38,7 @@ interface DataTableProps<T> {
   emptyMessage?: string
 }
 
-export function DataTable<T extends Record<string, unknown>>({
+export function DataTable<T extends Record<string, any>>({
   columns,
   data,
   searchKey,
@@ -54,7 +54,7 @@ export function DataTable<T extends Record<string, unknown>>({
   const filteredData = React.useMemo(() => {
     if (!search || !searchKey) return data
     return data.filter((row) => {
-      const value = row[searchKey]
+      const value = row[searchKey as string]
       if (typeof value === 'string') {
         return value.toLowerCase().includes(search.toLowerCase())
       }
@@ -70,7 +70,7 @@ export function DataTable<T extends Record<string, unknown>>({
     if (column.cell) {
       return column.cell(row)
     }
-    const value = row[column.key as keyof T]
+    const value = row[column.key as string]
     if (value === null || value === undefined) return '-'
     return String(value)
   }
