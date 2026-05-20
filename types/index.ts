@@ -209,7 +209,9 @@ export interface Handover {
   date: string;
   patientCount: number;
   criticalPatients: number;
-  pendingTasks: number;
+  pendingTasks: string[];
+  recommendation?: string;
+  criticalAlerts?: string[];
   notes?: string;
   status: 'pending' | 'completed';
   createdAt: string;
