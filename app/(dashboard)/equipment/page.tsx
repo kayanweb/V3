@@ -5,7 +5,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   Dialog,
   DialogContent,
@@ -29,8 +28,6 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
 import { Equipment } from '@/types'
 import {
   Wrench,
@@ -41,19 +38,12 @@ import {
   Clock,
   Settings,
   MapPin,
-  Calendar,
-  BarChart3,
-  Filter,
   Download,
   QrCode,
-  Edit,
   Trash2,
 } from 'lucide-react'
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
-import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 
-// تعريف نوع الحالة - مطابق لـ Equipment.status
 type EquipmentStatus = 'available' | 'in-use' | 'maintenance' | 'broken'
 
 const statusConfig: Record<EquipmentStatus, {
@@ -67,7 +57,6 @@ const statusConfig: Record<EquipmentStatus, {
   broken: { label: 'معطل', color: 'text-red-600', bgColor: 'bg-red-100' },
 }
 
-// Sample data
 const sampleEquipment: Equipment[] = [
   {
     id: '1',
@@ -148,11 +137,8 @@ export default function EquipmentPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [filterStatus, setFilterStatus] = useState<string>('all')
   const [filterDepartment, setFilterDepartment] = useState<string>('all')
-  const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [selectedEquipment, setSelectedEquipment] = useState<Equipment | null>(null)
-  const [deleteId, setDeleteId] = useState<string | null>(null)
 
-  // Stats
   const totalEquipment = equipment.length
   const availableCount = equipment.filter((e) => e.status === 'available').length
   const inUseCount = equipment.filter((e) => e.status === 'in-use').length
@@ -181,27 +167,17 @@ export default function EquipmentPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
           <h1 className="text-2xl font-bold">إدارة المعدات الطبية</h1>
-          <p className="text-muted-foreground">
-            تتبع وإدارة جميع المعدات والأجهزة الطبية
-          </p>
+          <p className="text-muted-foreground">تتبع وإدارة جميع المعدات والأجهزة الطبية</p>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" className="gap-2">
-            <Download className="h-4 w-4" />
-            تصدير
-          </Button>
-          <Button onClick={() => setIsDialogOpen(true)} className="gap-2">
-            <Plus className="h-4 w-4" />
-            إضافة معدة
-          </Button>
-        </div>
+        <Button className="gap-2">
+          <Plus className="h-4 w-4" />
+          إضافة معدة
+        </Button>
       </div>
 
-      {/* Stats */}
       <div className="grid gap-4 md:grid-cols-5">
         <Card>
           <CardContent className="pt-6">
@@ -260,7 +236,6 @@ export default function EquipmentPage() {
         </Card>
       </div>
 
-      {/* Filters */}
       <Card>
         <CardContent className="pt-6">
           <div className="flex flex-col gap-4 md:flex-row">
@@ -303,7 +278,6 @@ export default function EquipmentPage() {
         </CardContent>
       </Card>
 
-      {/* Equipment Table */}
       <Card>
         <CardHeader>
           <CardTitle>قائمة المعدات</CardTitle>
@@ -331,11 +305,7 @@ export default function EquipmentPage() {
                   </TableRow>
                 ) : (
                   filteredEquipment.map((item) => (
-                    <TableRow
-                      key={item.id}
-                      className="cursor-pointer hover:bg-muted/50"
-                      onClick={() => setSelectedEquipment(item)}
-                    >
+                    <TableRow key={item.id} className="cursor-pointer hover:bg-muted/50" onClick={() => setSelectedEquipment(item)}>
                       <TableCell>
                         <div>
                           <p className="font-medium">{item.nameAr}</p>
@@ -351,29 +321,15 @@ export default function EquipmentPage() {
                         </span>
                       </TableCell>
                       <TableCell>
-                        <Badge
-                          className={cn(
-                            statusConfig[item.status as EquipmentStatus].bgColor,
-                            statusConfig[item.status as EquipmentStatus].color
-                          )}
-                        >
+                        <Badge className={cn(statusConfig[item.status as EquipmentStatus].bgColor, statusConfig[item.status as EquipmentStatus].color)}>
                           {statusConfig[item.status as EquipmentStatus].label}
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        {item.nextMaintenance ? (
-                          <span className="text-sm">
-                            {new Date(item.nextMaintenance).toLocaleDateString('ar-EG')}
-                          </span>
-                        ) : (
-                          <span className="text-sm text-muted-foreground">-</span>
-                        )}
+                        {item.nextMaintenance ? new Date(item.nextMaintenance).toLocaleDateString('ar-EG') : '-'}
                       </TableCell>
-                      <TableCell onClick={e => e.stopPropagation()}>
-                        <div className="flex gap-1">
-                          <Button variant="ghost" size="sm" className="h-7 px-2" onClick={() => setSelectedEquipment(item)}>عرض</Button>
-                          <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-destructive" onClick={() => setDeleteId(item.id)}><Trash2 className="h-3 w-3"/></Button>
-                        </div>
+                      <TableCell onClick={(e) => e.stopPropagation()}>
+                        <Button variant="ghost" size="sm">عرض</Button>
                       </TableCell>
                     </TableRow>
                   ))
@@ -384,11 +340,7 @@ export default function EquipmentPage() {
         </CardContent>
       </Card>
 
-      {/* View Equipment Dialog */}
-      <Dialog
-        open={!!selectedEquipment}
-        onOpenChange={() => setSelectedEquipment(null)}
-      >
+      <Dialog open={!!selectedEquipment} onOpenChange={() => setSelectedEquipment(null)}>
         {selectedEquipment && (
           <DialogContent className="max-w-lg">
             <DialogHeader>
@@ -396,98 +348,20 @@ export default function EquipmentPage() {
               <DialogDescription>{selectedEquipment.name}</DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-4">
-              <div className="flex items-center justify-between">
-                <Badge
-                  className={cn(
-                    statusConfig[selectedEquipment.status as EquipmentStatus].bgColor,
-                    statusConfig[selectedEquipment.status as EquipmentStatus].color,
-                    'text-sm'
-                  )}
-                >
-                  {statusConfig[selectedEquipment.status as EquipmentStatus].label}
-                </Badge>
-                <Button variant="outline" size="sm" className="gap-1">
-                  <QrCode className="h-4 w-4" />
-                  QR Code
-                </Button>
-              </div>
-
+              <Badge className={cn(statusConfig[selectedEquipment.status as EquipmentStatus].bgColor, statusConfig[selectedEquipment.status as EquipmentStatus].color)}>
+                {statusConfig[selectedEquipment.status as EquipmentStatus].label}
+              </Badge>
               <div className="grid gap-4 text-sm">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-muted-foreground">الرقم التسلسلي</p>
-                    <p className="font-mono">{selectedEquipment.serialNumber}</p>
-                  </div>
-                  <div>
-                    <p className="text-muted-foreground">الفئة</p>
-                    <p>{selectedEquipment.category}</p>
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-muted-foreground">القسم</p>
-                    <p>{selectedEquipment.department}</p>
-                  </div>
-                  <div>
-                    <p className="text-muted-foreground">الموقع</p>
-                    <p>{selectedEquipment.location}</p>
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-muted-foreground">تاريخ الشراء</p>
-                    <p>
-                      {selectedEquipment.purchaseDate
-                        ? new Date(selectedEquipment.purchaseDate).toLocaleDateString('ar-EG')
-                        : '-'}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-muted-foreground">انتهاء الضمان</p>
-                    <p>
-                      {selectedEquipment.warrantyExpiry
-                        ? new Date(selectedEquipment.warrantyExpiry).toLocaleDateString('ar-EG')
-                        : '-'}
-                    </p>
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-muted-foreground">آخر صيانة</p>
-                    <p>
-                      {selectedEquipment.lastMaintenance
-                        ? new Date(selectedEquipment.lastMaintenance).toLocaleDateString('ar-EG')
-                        : '-'}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-muted-foreground">الصيانة القادمة</p>
-                    <p>
-                      {selectedEquipment.nextMaintenance
-                        ? new Date(selectedEquipment.nextMaintenance).toLocaleDateString('ar-EG')
-                        : '-'}
-                    </p>
-                  </div>
-                </div>
-                {selectedEquipment.assignedTo && (
-                  <div>
-                    <p className="text-muted-foreground">مخصص لـ</p>
-                    <p>{selectedEquipment.assignedTo}</p>
-                  </div>
-                )}
-                {selectedEquipment.notes && (
-                  <div>
-                    <p className="text-muted-foreground">ملاحظات</p>
-                    <p>{selectedEquipment.notes}</p>
-                  </div>
-                )}
+                <div><p className="text-muted-foreground">الرقم التسلسلي</p><p className="font-mono">{selectedEquipment.serialNumber}</p></div>
+                <div><p className="text-muted-foreground">الفئة</p><p>{selectedEquipment.category}</p></div>
+                <div><p className="text-muted-foreground">القسم</p><p>{selectedEquipment.department}</p></div>
+                <div><p className="text-muted-foreground">الموقع</p><p>{selectedEquipment.location}</p></div>
+                {selectedEquipment.assignedTo && <div><p className="text-muted-foreground">مخصص لـ</p><p>{selectedEquipment.assignedTo}</p></div>}
+                {selectedEquipment.notes && <div><p className="text-muted-foreground">ملاحظات</p><p>{selectedEquipment.notes}</p></div>}
               </div>
             </div>
             <DialogFooter>
-              <Button variant="outline" onClick={() => setSelectedEquipment(null)}>
-                إغلاق
-              </Button>
-              <Button>تعديل</Button>
+              <Button variant="outline" onClick={() => setSelectedEquipment(null)}>إغلاق</Button>
             </DialogFooter>
           </DialogContent>
         )}
