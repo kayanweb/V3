@@ -47,7 +47,6 @@ export default function LoginPage() {
       if (!res.success) {
         toast.error(isAr ? 'خطأ في بيانات الدخول' : 'Login failed', { description: res.error })
       } else if (res.mustChangePassword) {
-        // Auth context already sets user state and redirects to /change-password
         router.push('/change-password')
       } else {
         toast.success(isAr ? 'مرحباً بك' : 'Welcome back!')
@@ -104,7 +103,7 @@ export default function LoginPage() {
             <div className="grid grid-cols-2 gap-1 bg-muted rounded-lg p-1">
               <button
                 onClick={() => setTab('employee')}
-                className={`py-2 px-3 rounded-md text-sm font-medium transition-all ${tab === 'employee' ? 'bg-white dark:bg-slate-800 shadow text-teal-700 dark:text-teal-400' : 'text-muted-foreg[...]
+                className={`py-2 px-3 rounded-md text-sm font-medium transition-all ${tab === 'employee' ? 'bg-white dark:bg-slate-800 shadow text-teal-700 dark:text-teal-400' : 'text-muted-foreground'}`}
               >
                 <span className="flex items-center justify-center gap-1.5">
                   <IdCard className="h-4 w-4" />
@@ -113,7 +112,7 @@ export default function LoginPage() {
               </button>
               <button
                 onClick={() => setTab('google')}
-                className={`py-2 px-3 rounded-md text-sm font-medium transition-all ${tab === 'google' ? 'bg-white dark:bg-slate-800 shadow text-teal-700 dark:text-teal-400' : 'text-muted-foregro[...]
+                className={`py-2 px-3 rounded-md text-sm font-medium transition-all ${tab === 'google' ? 'bg-white dark:bg-slate-800 shadow text-teal-700 dark:text-teal-400' : 'text-muted-foreground'}`}
               >
                 <span className="flex items-center justify-center gap-1.5">
                   <GoogleIcon />
