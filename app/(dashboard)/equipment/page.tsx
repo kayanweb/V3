@@ -65,10 +65,9 @@ const statusConfig: Record<EquipmentStatus, {
   in_use: { label: 'قيد الاستخدام', color: 'text-blue-600', bgColor: 'bg-blue-100' },
   maintenance: { label: 'صيانة', color: 'text-amber-600', bgColor: 'bg-amber-100' },
   broken: { label: 'معطل', color: 'text-red-600', bgColor: 'bg-red-100' },
-  retired: { label: 'خارج الخدمة', color: 'text-gray-600', bgColor: 'bg-gray-100' },
 }
 
-// Sample data (نفس البيانات الأصلية بدون تغيير)
+// Sample data
 const sampleEquipment: Equipment[] = [
   {
     id: '1',
