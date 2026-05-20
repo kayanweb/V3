@@ -1,4 +1,3 @@
-```tsx
 'use client'
 
 import {
@@ -88,6 +87,15 @@ const alerts: Alert[] = [
   },
 ]
 
+// Safe formatter for pie chart labels
+// Extracted to prevent Turbopack JSX parsing errors with inline callbacks
+const formatPieLabel = (props: { name?: string; percent?: number }): string => {
+  const name = props.name ?? ''
+  const percent = props.percent ?? 0
+  const value = `${name} ${(percent * 100).toFixed(0)}%`
+  return value
+}
+
 export default function DashboardPage() {
   const { lang } = useLang()
   const isAr = lang === 'ar'
@@ -125,8 +133,8 @@ export default function DashboardPage() {
 
         <StatsCard
           title={isAr ? 'نسبة الإشغال' : 'Occupancy Rate'}
-value={stats.occupancyRate + '%'}
-icon={Activity}
+          value={stats.occupancyRate + '%'}
+          icon={Activity}
           variant="primary"
           trend={{ value: 5, isPositive: true }}
         />
@@ -224,9 +232,7 @@ icon={Activity}
                   outerRadius={100}
                   paddingAngle={5}
                   dataKey="value"
-                  label={({ name, percent }) =>
-                    `${name} ${((percent ?? 0) * 100).toFixed(0)}%`
-                  }
+                  label={formatPieLabel}
                   labelLine={false}
                 >
                   {staffDistribution.map((entry, index) => (
@@ -362,4 +368,3 @@ icon={Activity}
     </div>
   )
 }
-```
