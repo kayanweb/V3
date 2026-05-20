@@ -1,4 +1,3 @@
-```tsx
 'use client'
 
 import {
@@ -362,4 +361,3 @@ icon={Activity}
     </div>
   )
 }
-```

@@ -5,7 +5,7 @@
 import { reportRepo } from '@/lib/repositories';
 import type { ReportRecord, ReportShift, ReportStatus } from '@/lib/repositories/contracts'; // Assuming contracts.ts defines ReportRecord
 
-export type { ReportRecord };
+export type { ReportRecord, ReportShift, ReportStatus };
 
 export async function getAllReports(): Promise<ReportRecord[]> {
   return reportRepo().getAll();

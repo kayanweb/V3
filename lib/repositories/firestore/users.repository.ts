@@ -51,7 +51,7 @@ export class FirestoreUserRepository implements IUserRepository {
   async create(user: Omit<UserRecord, 'id' | 'createdAt' | 'updatedAt'> & { id?: string }): Promise<UserRecord> {
     const now = Timestamp.now()
     const { id: suppliedId, ...rest } = user as { id?: string } & typeof user
-    const data: Omit<UserRecord, 'id'> = { ...rest, createdAt: now, updatedAt: now }
+    const data = { ...rest, createdAt: now, updatedAt: now } as Record<string, unknown>
     if (suppliedId) {
       // If caller supplied an id (e.g. Firebase UID), use setDoc
       const ref = doc(getFirestoreDb(), COL, suppliedId)
@@ -65,11 +65,11 @@ export class FirestoreUserRepository implements IUserRepository {
 
   async update(id: string, updates: Partial<UserRecord>): Promise<UserRecord | undefined> {
     const ref = doc(getFirestoreDb(), COL, id)
-    const payload = { ...updates, updatedAt: Timestamp.now() }
-    // Convert string dates in updates to Timestamps if necessary, e.g., lastLogin
+    const payload: Record<string, unknown> = { ...updates, updatedAt: Timestamp.now() }
     if (typeof payload.lastLogin === 'string') {
-      payload.lastLogin = Timestamp.fromDate(new Date(payload.lastLogin));
+      payload.lastLogin = Timestamp.fromDate(new Date(payload.lastLogin as string));
     }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await updateDoc(ref, payload as any) // eslint-disable-line @typescript-eslint/no-explicit-any
     return this.getById(id); // Re-fetch to ensure proper timestamp conversion
   }
