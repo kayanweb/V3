@@ -196,26 +196,25 @@ export interface MaintenanceRequest {
 }
 
 // ==========================================
-// 12. تسليم المناوبة (Handover)
+// 12. تسليم المناوبة (Handover) - SBAR
 // ==========================================
 export interface Handover {
   id: string;
-  fromEmployeeId: string;
-  fromEmployeeName: string;
-  toEmployeeId: string;
-  toEmployeeName: string;
-  shift: 'morning' | 'evening' | 'night';
+  patientId: string;
+  patientName: string;
+  mrn: string;
   department: string;
+  fromNurse: string;
+  toNurse: string;
+  shift: 'morning' | 'evening' | 'night';
   date: string;
-  patientCount: number;
-  criticalPatients: number;
+  situation: string;
+  background: string;
+  assessment: string;
+  recommendation: string;
+  criticalAlerts: string[];
   pendingTasks: string[];
-  recommendation?: string;
-  criticalAlerts?: string[];
-  notes?: string;
-  status: 'pending' | 'completed';
-  createdAt: string;
-  completedAt?: string;
+  status: 'pending' | 'acknowledged' | 'completed';
 }
 
 // ==========================================
