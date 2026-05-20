@@ -167,7 +167,7 @@ export interface InventoryItem {
   name: string;
   nameAr: string;
   category: string;
-  quantity: number;
+  currentStock: number;
   unit: string;
   minStock: number;
   maxStock: number;
@@ -175,8 +175,8 @@ export interface InventoryItem {
   expiryDate?: string;
   supplier?: string;
   lastUpdated: string;
+  lastRestocked?: string;
 }
-
 // ==========================================
 // 11. الصيانة (Maintenance)
 // ==========================================
