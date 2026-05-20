@@ -60,37 +60,35 @@ const staffDistribution = [
 const alerts: Alert[] = [
   {
     id: '1',
+    title: 'ER department is over capacity',
+    description: 'قسم الطوارئ تجاوز السعة المحددة (29 مريض / 11 سرير)',
     type: 'warning',
-    title: 'ER department is over capacity (29 patients / 11 beds)',
-    department: 'الطوارئ',
-    severity: 'critical',
-    timestamp: '2024-01-15T10:30:00.000Z',
+    createdAt: '2024-01-15T10:30:00.000Z',
+    read: false,
   },
   {
     id: '2',
-    type: 'low_staff',
-    title: 'Low nurse to patient ratio in 9th Floor',
-    department: 'الطابق 9',
-    severity: 'warning',
-    timestamp: '2024-01-15T09:30:00.000Z',
+    title: 'Low nurse to patient ratio',
+    description: 'نسبة الممرضين للمرضى منخفضة في قسم الطابق 9',
+    type: 'warning',
+    createdAt: '2024-01-15T09:30:00.000Z',
+    read: false,
   },
   {
     id: '3',
-    type: 'isolation',
-    title: 'New isolation case registered - CONTACT isolation',
-    department: 'ICU 3rd',
-    severity: 'warning',
-    timestamp: '2024-01-15T08:30:00.000Z',
+    title: 'New isolation case registered',
+    description: 'تم تسجيل حالة عزل جديدة - CONTACT isolation',
+    type: 'warning',
+    createdAt: '2024-01-15T08:30:00.000Z',
+    read: false,
   },
 ]
 
 // Safe formatter for pie chart labels
-// Extracted to prevent Turbopack JSX parsing errors with inline callbacks
 const formatPieLabel = (props: { name?: string; percent?: number }): string => {
   const name = props.name ?? ''
   const percent = props.percent ?? 0
-  const value = `${name} ${(percent * 100).toFixed(0)}%`
-  return value
+  return `${name} ${(percent * 100).toFixed(0)}%`
 }
 
 export default function DashboardPage() {
@@ -104,7 +102,6 @@ export default function DashboardPage() {
         <h1 className="text-2xl font-bold tracking-tight">
           {isAr ? 'لوحة التحكم' : 'Dashboard'}
         </h1>
-
         <p className="text-muted-foreground">
           {isAr
             ? 'نظرة عامة على حالة المستشفى والإحصائيات'
@@ -120,14 +117,12 @@ export default function DashboardPage() {
           icon={Bed}
           variant="default"
         />
-
         <StatsCard
           title={isAr ? 'إجمالي المرضى' : 'Total Patients'}
           value={stats.totalPatients}
           icon={Users}
           variant="primary"
         />
-
         <StatsCard
           title={isAr ? 'نسبة الإشغال' : 'Occupancy Rate'}
           value={stats.occupancyRate + '%'}
@@ -135,21 +130,18 @@ export default function DashboardPage() {
           variant="primary"
           trend={{ value: 5, isPositive: true }}
         />
-
         <StatsCard
           title={isAr ? 'إجمالي الكادر' : 'Total Staff'}
           value={stats.totalStaff}
           icon={UserCheck}
           variant="success"
         />
-
         <StatsCard
           title={isAr ? 'الغياب' : 'Absences'}
           value={stats.absences}
           icon={UserX}
           variant="warning"
         />
-
         <StatsCard
           title={isAr ? 'حالات العزل' : 'Isolation Cases'}
           value={stats.isolationCases}
@@ -172,21 +164,14 @@ export default function DashboardPage() {
                 layout="vertical"
                 margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
               >
-                <CartesianGrid
-                  strokeDasharray="3 3"
-                  horizontal
-                  vertical={false}
-                />
-
+                <CartesianGrid strokeDasharray="3 3" horizontal vertical={false} />
                 <XAxis type="number" />
-
                 <YAxis
                   dataKey={isAr ? 'nameAr' : 'name'}
                   type="category"
                   width={80}
                   tick={{ fontSize: 12 }}
                 />
-
                 <Tooltip
                   contentStyle={{
                     backgroundColor: 'hsl(var(--card))',
@@ -194,26 +179,14 @@ export default function DashboardPage() {
                     borderRadius: '8px',
                   }}
                 />
-
                 <Legend />
-
-                <Bar
-                  dataKey="patients"
-                  fill="hsl(var(--chart-1))"
-                  radius={[0, 4, 4, 0]}
-                />
-
-                <Bar
-                  dataKey="beds"
-                  fill="hsl(var(--chart-2))"
-                  radius={[0, 4, 4, 0]}
-                />
+                <Bar dataKey="patients" fill="hsl(var(--chart-1))" radius={[0, 4, 4, 0]} />
+                <Bar dataKey="beds" fill="hsl(var(--chart-2))" radius={[0, 4, 4, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
         </ChartCard>
 
-        {/* Pie */}
         <ChartCard
           title="توزيع الكادر التمريضي"
           subtitle="حسب المستوى الوظيفي"
@@ -233,13 +206,9 @@ export default function DashboardPage() {
                   labelLine={false}
                 >
                   {staffDistribution.map((entry, index) => (
-                    <Cell
-                      key={`cell-${index}`}
-                      fill={entry.color}
-                    />
+                    <Cell key={`cell-${index}`} fill={entry.color} />
                   ))}
                 </Pie>
-
                 <Tooltip
                   contentStyle={{
                     backgroundColor: 'hsl(var(--card))',
@@ -256,7 +225,7 @@ export default function DashboardPage() {
       {/* Alerts */}
       <AlertCard alerts={alerts} />
 
-      {/* Departments */}
+      {/* Departments Table */}
       <ChartCard
         title="نظرة عامة على الأقسام"
         subtitle="حالة كل قسم في الوقت الحالي"
@@ -265,79 +234,38 @@ export default function DashboardPage() {
           <table className="w-full">
             <thead>
               <tr className="border-b">
-                <th className="text-right py-3 px-4 font-semibold text-sm">
-                  القسم
-                </th>
-
-                <th className="text-right py-3 px-4 font-semibold text-sm">
-                  الأسرة
-                </th>
-
-                <th className="text-right py-3 px-4 font-semibold text-sm">
-                  المرضى
-                </th>
-
-                <th className="text-right py-3 px-4 font-semibold text-sm">
-                  الممرضين
-                </th>
-
-                <th className="text-right py-3 px-4 font-semibold text-sm">
-                  الإشغال
-                </th>
-
-                <th className="text-right py-3 px-4 font-semibold text-sm">
-                  الحالة
-                </th>
+                <th className="text-right py-3 px-4 font-semibold text-sm">القسم</th>
+                <th className="text-right py-3 px-4 font-semibold text-sm">الأسرة</th>
+                <th className="text-right py-3 px-4 font-semibold text-sm">المرضى</th>
+                <th className="text-right py-3 px-4 font-semibold text-sm">الممرضين</th>
+                <th className="text-right py-3 px-4 font-semibold text-sm">الإشغال</th>
+                <th className="text-right py-3 px-4 font-semibold text-sm">الحالة</th>
               </tr>
             </thead>
-
             <tbody>
               {departmentData.map((dept) => {
-                const occupancy = Math.round(
-                  (dept.patients / dept.beds) * 100
-                )
-
+                const occupancy = Math.round((dept.patients / dept.beds) * 100)
                 const isOverCapacity = dept.patients > dept.beds
                 const isHighOccupancy = occupancy >= 80
-
                 return (
-                  <tr
-                    key={dept.name}
-                    className="border-b last:border-0 hover:bg-muted/50"
-                  >
-                    <td className="py-3 px-4 font-medium">
-                      {dept.nameAr}
-                    </td>
-
+                  <tr key={dept.name} className="border-b last:border-0 hover:bg-muted/50">
+                    <td className="py-3 px-4 font-medium">{dept.nameAr}</td>
                     <td className="py-3 px-4">{dept.beds}</td>
-
                     <td className="py-3 px-4">{dept.patients}</td>
-
                     <td className="py-3 px-4">{dept.nurses}</td>
-
                     <td className="py-3 px-4">
                       <div className="flex items-center gap-2">
                         <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden max-w-[100px]">
                           <div
                             className={`h-full rounded-full ${
-                              isOverCapacity
-                                ? 'bg-destructive'
-                                : isHighOccupancy
-                                ? 'bg-warning'
-                                : 'bg-success'
+                              isOverCapacity ? 'bg-destructive' : isHighOccupancy ? 'bg-warning' : 'bg-success'
                             }`}
-                            style={{
-                              width: `${Math.min(occupancy, 100)}%`,
-                            }}
+                            style={{ width: `${Math.min(occupancy, 100)}%` }}
                           />
                         </div>
-
-                        <span className="text-sm">
-                          {occupancy}%
-                        </span>
+                        <span className="text-sm">{occupancy}%</span>
                       </div>
                     </td>
-
                     <td className="py-3 px-4">
                       <span
                         className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
@@ -348,11 +276,7 @@ export default function DashboardPage() {
                             : 'bg-success/10 text-success'
                         }`}
                       >
-                        {isOverCapacity
-                          ? 'تجاوز السعة'
-                          : isHighOccupancy
-                          ? 'مرتفع'
-                          : 'طبيعي'}
+                        {isOverCapacity ? 'تجاوز السعة' : isHighOccupancy ? 'مرتفع' : 'طبيعي'}
                       </span>
                     </td>
                   </tr>
