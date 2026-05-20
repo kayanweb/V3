@@ -15,7 +15,13 @@ import {
 import { Badge } from '@/components/ui/badge'
 import { toast } from 'sonner'
 import { useLang } from '@/contexts/lang-context'
-import { DEMO_EMPLOYEES } from '@/contexts/auth-context'
+
+// Demo employees - moved to separate constant to avoid circular dependency
+const DEMO_EMPLOYEES = [
+  { id: '1', nameAr: 'أحمد محمد', employeeCode: 'EMP001' },
+  { id: '2', nameAr: 'سارة علي', employeeCode: 'EMP002' },
+  { id: '3', nameAr: 'محمد خالد', employeeCode: 'EMP003' },
+] as const
 
 interface Props {
   open: boolean
