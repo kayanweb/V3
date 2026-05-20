@@ -38,11 +38,16 @@ export interface Equipment {
   name: string;
   nameAr: string;        // إجباري لإصلاح خطأ صفحة المعدات بالكامل
   serialNumber: string;  // إجباري لمنع خطأ الـ undefined أثناء البحث
+  category?: string;     // الفئة (أجهزة تنفسية، مضخات، الخ)
   status: 'available' | 'in-use' | 'maintenance' | 'broken';
   department: string;
   location: string;
   lastMaintenance?: string;
   nextMaintenance?: string;
+  purchaseDate?: string;     // تاريخ الشراء
+  warrantyExpiry?: string;   // انتهاء الضمان
+  assignedTo?: string;       // مخصص لـ (مريض أو قسم)
+  notes?: string;            // ملاحظات
 }
 
 // ==========================================
