@@ -104,7 +104,7 @@ export default function LoginPage() {
             <div className="grid grid-cols-2 gap-1 bg-muted rounded-lg p-1">
               <button
                 onClick={() => setTab('employee')}
-                className={`py-2 px-3 rounded-md text-sm font-medium transition-all ${tab === 'employee' ? 'bg-white dark:bg-slate-800 shadow text-teal-700 dark:text-teal-400' : 'text-muted-foreground hover:text-foreground'}`}
+                className={`py-2 px-3 rounded-md text-sm font-medium transition-all ${tab === 'employee' ? 'bg-white dark:bg-slate-800 shadow text-teal-700 dark:text-teal-400' : 'text-muted-foreg[...]
               >
                 <span className="flex items-center justify-center gap-1.5">
                   <IdCard className="h-4 w-4" />
@@ -113,7 +113,7 @@ export default function LoginPage() {
               </button>
               <button
                 onClick={() => setTab('google')}
-                className={`py-2 px-3 rounded-md text-sm font-medium transition-all ${tab === 'google' ? 'bg-white dark:bg-slate-800 shadow text-teal-700 dark:text-teal-400' : 'text-muted-foreground hover:text-foreground'}`}
+                className={`py-2 px-3 rounded-md text-sm font-medium transition-all ${tab === 'google' ? 'bg-white dark:bg-slate-800 shadow text-teal-700 dark:text-teal-400' : 'text-muted-foregro[...]
               >
                 <span className="flex items-center justify-center gap-1.5">
                   <GoogleIcon />
@@ -122,7 +122,7 @@ export default function LoginPage() {
               </button>
             </div>
 
-            {tab === 'employee' && (
+            {tab === 'employee' ? (
               <form onSubmit={handleEmployeeLogin} className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="empCode">{isAr ? 'كود الموظف' : 'Employee Code'}</Label>
@@ -176,11 +176,11 @@ export default function LoginPage() {
                       {isAr ? 'تسجيل الدخول' : 'Sign In'}
                     </span>
                   )}
-                 </Button>
-               </form>
-             )}
+                </Button>
+              </form>
+            ) : null}
 
-            {tab === 'google' && (
+            {tab === 'google' ? (
               <div className="space-y-4 py-2">
                 <p className="text-sm text-center text-muted-foreground">
                   {isAr ? 'سجّل دخولك باستخدام حساب Google الخاص بك' : 'Sign in using your Google account'}
@@ -202,7 +202,7 @@ export default function LoginPage() {
                   {isAr ? 'يتطلب ضبط Firebase — راجع ملف .env.local' : 'Requires Firebase setup — see .env.local file'}
                 </p>
               </div>
-            )}
+            ) : null}
           </CardContent>
         </Card>
 

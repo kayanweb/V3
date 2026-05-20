@@ -81,11 +81,20 @@ const alerts: Alert[] = [
     type: 'isolation',
     message: 'New isolation case registered',
     messageAr: 'تم تسجيل حالة عزل جديدة - CONTACT isolation',
-    department: 'ICU 3rd',
+    department: 'ICU 3rd'
     severity: 'warning',
     timestamp: '2024-01-15T08:30:00.000Z',
   },
 ]
+
+// Safe formatter for pie chart labels
+// Extracted to prevent Turbopack JSX parsing errors with inline callbacks
+const formatPieLabel = (props: { name?: string; percent?: number }): string => {
+  const name = props.name ?? ''
+  const percent = props.percent ?? 0
+  const value = `${name} ${(percent * 100).toFixed(0)}%`
+  return value
+}
 
 export default function DashboardPage() {
   const { lang } = useLang()
@@ -124,8 +133,8 @@ export default function DashboardPage() {
 
         <StatsCard
           title={isAr ? 'نسبة الإشغال' : 'Occupancy Rate'}
-value={stats.occupancyRate + '%'}
-icon={Activity}
+          value={stats.occupancyRate + '%'}
+          icon={Activity}
           variant="primary"
           trend={{ value: 5, isPositive: true }}
         />
@@ -223,10 +232,10 @@ icon={Activity}
                   outerRadius={100}
                   paddingAngle={5}
                   dataKey="value"
-                  label={({ name, percent }: { name: string; percent: number }) => {
-                    const pct = ((percent ?? 0) * 100).toFixed(0)
-                    return name + ' ' + pct + '%'
-                  }}
+label={({ name, percent }: { name: string; percent?: number }) => {
+  const pct = ((percent ?? 0) * 100).toFixed(0)
+  return `${name} ${pct}%`
+}}
                   labelLine={false}
                 >
                   {staffDistribution.map((entry, index) => (
