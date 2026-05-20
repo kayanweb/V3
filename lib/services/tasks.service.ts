@@ -43,6 +43,7 @@ export async function createTask(
       assignedTo: { oldValue: null, newValue: task.assignedTo },
       priority: { oldValue: null, newValue: task.priority },
     },
+    timestamp: new Date().toISOString(),
   }).catch(() => {})
   return created
 }
@@ -64,6 +65,7 @@ export async function completeTask(
       collection: 'tasks',
       documentId: id,
       changes: { status: { oldValue: before?.status ?? 'unknown', newValue: 'completed' } },
+      timestamp: new Date().toISOString(),
     }).catch(() => {})
   }
   return completed
@@ -84,6 +86,7 @@ export async function cancelTask(
       collection: 'tasks',
       documentId: id,
       changes: { status: { oldValue: before?.status ?? 'unknown', newValue: 'cancelled' } },
+      timestamp: new Date().toISOString(),
     }).catch(() => {})
   }
   return cancelled
@@ -105,6 +108,7 @@ export async function updateTaskPriority(
       collection: 'tasks',
       documentId: id,
       changes: { priority: { oldValue: before?.priority ?? 'unknown', newValue: priority } },
+      timestamp: new Date().toISOString(),
     }).catch(() => {})
   }
   return updated

@@ -232,10 +232,7 @@ export default function DashboardPage() {
                   outerRadius={100}
                   paddingAngle={5}
                   dataKey="value"
-label={({ name, percent }: { name: string; percent?: number }) => {
-  const pct = ((percent ?? 0) * 100).toFixed(0)
-  return `${name} ${pct}%`
-}}
+                  label={formatPieLabel}
                   labelLine={false}
                 >
                   {staffDistribution.map((entry, index) => (

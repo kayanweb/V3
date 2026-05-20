@@ -46,10 +46,10 @@ export class FirestoreReportRepository implements IReportRepository {
     if (date) {
       q = query(q, where('date', '==', date));
     }
-    if (shift && (shift as string) !== 'all') {
+    if (shift && shift !== 'all') {
       q = query(q, where('shift', '==', shift));
     }
-    if (status && (status as string) !== 'all') {
+    if (status && status !== 'all') {
       q = query(q, where('status', '==', status));
     }
     const snapshot = await getDocs(q);

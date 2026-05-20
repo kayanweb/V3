@@ -435,9 +435,7 @@ export default function EquipmentPage() {
                   <div>
                     <p className="text-muted-foreground">تاريخ الشراء</p>
                     <p>
-                      {selectedEquipment.purchaseDate
-                        ? new Date(selectedEquipment.purchaseDate).toLocaleDateString('ar-EG')
-                        : '-'}
+                      {new Date(selectedEquipment.purchaseDate).toLocaleDateString('ar-EG')}
                     </p>
                   </div>
                   <div>

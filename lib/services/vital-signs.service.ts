@@ -33,6 +33,7 @@ export async function recordVitalSigns(
         patientId: { oldValue: null, newValue: entry.patientId },
         flags: { oldValue: null, newValue: flags },
       },
+      timestamp: new Date().toISOString(),
     }).catch(() => {})
   }
 

@@ -3,10 +3,10 @@
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 
-export type StatusType = 
+type StatusType = 
   | 'done' | 'pending' | 'na' 
   | 'active' | 'inactive' 
-  | 'draft' | 'submitted' | 'approved' | 'rejected'
+  | 'draft' | 'submitted' | 'approved'
   | 'admitted' | 'discharged' | 'transferred'
   | 'open' | 'resolved'
   | 'morning' | 'evening' | 'night'
@@ -73,10 +73,6 @@ const statusConfig: Record<StatusType, { label: string; className: string }> = {
   resolved: {
     label: 'محلول',
     className: 'bg-success/10 text-success border-success/20 hover:bg-success/20',
-  },
-  rejected: {
-    label: 'مرفوض',
-    className: 'bg-destructive/10 text-destructive border-destructive/20 hover:bg-destructive/20',
   },
   // Shift types
   morning: {

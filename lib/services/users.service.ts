@@ -69,7 +69,7 @@ export async function updateUserPreferences(
   userId: string,
   preferences: Partial<UserRecord['preferences']>
 ): Promise<UserRecord | undefined> {
-  return userRepo().update(userId, { preferences: preferences as UserRecord['preferences'] })
+  return userRepo().update(userId, { preferences })
 }
 
 // ─── Employee Credentials ────────────────────────────────────
