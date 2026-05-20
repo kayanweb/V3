@@ -81,7 +81,7 @@ const alerts: Alert[] = [
     type: 'isolation',
     message: 'New isolation case registered',
     messageAr: 'تم تسجيل حالة عزل جديدة - CONTACT isolation',
-    department: 'ICU 3rd',
+    department: 'ICU 3rd'
     severity: 'warning',
     timestamp: '2024-01-15T08:30:00.000Z',
   },
@@ -232,7 +232,10 @@ export default function DashboardPage() {
                   outerRadius={100}
                   paddingAngle={5}
                   dataKey="value"
-                  label={formatPieLabel}
+label={({ name, percent }: { name: string; percent?: number }) => {
+  const pct = ((percent ?? 0) * 100).toFixed(0)
+  return `${name} ${pct}%`
+}}
                   labelLine={false}
                 >
                   {staffDistribution.map((entry, index) => (
