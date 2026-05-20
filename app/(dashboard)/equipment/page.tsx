@@ -53,7 +53,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 
-// تعريف نوع الحالة
+// تعريف نوع الحالة محلياً (بدون استيراده من @/types)
 type EquipmentStatus = 'available' | 'in_use' | 'maintenance' | 'broken'
 
 const statusConfig: Record<EquipmentStatus, {
@@ -65,63 +65,82 @@ const statusConfig: Record<EquipmentStatus, {
   in_use: { label: 'قيد الاستخدام', color: 'text-blue-600', bgColor: 'bg-blue-100' },
   maintenance: { label: 'صيانة', color: 'text-amber-600', bgColor: 'bg-amber-100' },
   broken: { label: 'معطل', color: 'text-red-600', bgColor: 'bg-red-100' },
+  retired: { label: 'خارج الخدمة', color: 'text-gray-600', bgColor: 'bg-gray-100' },
 }
 
-// Sample data
+// Sample data (نفس البيانات الأصلية بدون تغيير)
 const sampleEquipment: Equipment[] = [
   {
     id: '1',
     name: 'Ventilator',
     nameAr: 'جهاز تنفس صناعي',
     serialNumber: 'VNT-2024-001',
-    status: 'in_use',
+    category: 'أجهزة تنفسية',
     department: 'ICU',
     location: 'غرفة 301',
+    status: 'in_use',
     lastMaintenance: '2024-01-01',
     nextMaintenance: '2024-04-01',
+    purchaseDate: '2022-06-15',
+    warrantyExpiry: '2025-06-15',
+    assignedTo: 'المريض أحمد محمد',
   },
   {
     id: '2',
     name: 'Infusion Pump',
     nameAr: 'مضخة تسريب',
     serialNumber: 'INF-2024-015',
-    status: 'available',
+    category: 'مضخات',
     department: 'الجراحة',
     location: 'غرفة 205',
+    status: 'available',
     lastMaintenance: '2023-12-15',
     nextMaintenance: '2024-03-15',
+    purchaseDate: '2023-01-20',
+    warrantyExpiry: '2026-01-20',
   },
   {
     id: '3',
     name: 'Patient Monitor',
     nameAr: 'جهاز مراقبة المريض',
     serialNumber: 'MON-2024-008',
-    status: 'maintenance',
+    category: 'أجهزة مراقبة',
     department: 'الطوارئ',
     location: 'غرفة الإنعاش',
+    status: 'maintenance',
     lastMaintenance: '2024-01-10',
     nextMaintenance: '2024-01-25',
+    purchaseDate: '2021-08-10',
+    warrantyExpiry: '2024-08-10',
+    notes: 'في انتظار قطع غيار',
   },
   {
     id: '4',
     name: 'Defibrillator',
     nameAr: 'جهاز صدمات القلب',
     serialNumber: 'DEF-2024-003',
-    status: 'available',
+    category: 'أجهزة طوارئ',
     department: 'الطوارئ',
     location: 'عربة الإنعاش',
+    status: 'available',
     lastMaintenance: '2024-01-05',
     nextMaintenance: '2024-02-05',
+    purchaseDate: '2023-03-01',
+    warrantyExpiry: '2028-03-01',
   },
   {
     id: '5',
     name: 'ECG Machine',
     nameAr: 'جهاز تخطيط القلب',
     serialNumber: 'ECG-2024-012',
-    status: 'broken',
+    category: 'أجهزة تشخيصية',
     department: 'الباطنية',
     location: 'غرفة الفحص',
+    status: 'broken',
     lastMaintenance: '2023-11-20',
+    purchaseDate: '2020-05-15',
+    warrantyExpiry: '2023-05-15',
+    notes: 'يحتاج استبدال',
   },
 ]
 
@@ -321,6 +340,7 @@ export default function EquipmentPage() {
                       <TableCell>
                         <div>
                           <p className="font-medium">{item.nameAr}</p>
+                          <p className="text-xs text-muted-foreground">{item.category}</p>
                         </div>
                       </TableCell>
                       <TableCell className="font-mono text-sm">{item.serialNumber}</TableCell>
@@ -400,14 +420,36 @@ export default function EquipmentPage() {
                     <p className="font-mono">{selectedEquipment.serialNumber}</p>
                   </div>
                   <div>
-                    <p className="text-muted-foreground">القسم</p>
-                    <p>{selectedEquipment.department}</p>
+                    <p className="text-muted-foreground">الفئة</p>
+                    <p>{selectedEquipment.category}</p>
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
+                    <p className="text-muted-foreground">القسم</p>
+                    <p>{selectedEquipment.department}</p>
+                  </div>
+                  <div>
                     <p className="text-muted-foreground">الموقع</p>
                     <p>{selectedEquipment.location}</p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-muted-foreground">تاريخ الشراء</p>
+                    <p>
+                      {selectedEquipment.purchaseDate
+                        ? new Date(selectedEquipment.purchaseDate).toLocaleDateString('ar-EG')
+                        : '-'}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">انتهاء الضمان</p>
+                    <p>
+                      {selectedEquipment.warrantyExpiry
+                        ? new Date(selectedEquipment.warrantyExpiry).toLocaleDateString('ar-EG')
+                        : '-'}
+                    </p>
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
@@ -428,6 +470,18 @@ export default function EquipmentPage() {
                     </p>
                   </div>
                 </div>
+                {selectedEquipment.assignedTo && (
+                  <div>
+                    <p className="text-muted-foreground">مخصص لـ</p>
+                    <p>{selectedEquipment.assignedTo}</p>
+                  </div>
+                )}
+                {selectedEquipment.notes && (
+                  <div>
+                    <p className="text-muted-foreground">ملاحظات</p>
+                    <p>{selectedEquipment.notes}</p>
+                  </div>
+                )}
               </div>
             </div>
             <DialogFooter>
