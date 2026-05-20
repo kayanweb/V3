@@ -81,7 +81,7 @@ const alerts: Alert[] = [
     type: 'isolation',
     message: 'New isolation case registered',
     messageAr: 'تم تسجيل حالة عزل جديدة - CONTACT isolation',
-    department: 'ICU 3rd'
+    department: 'ICU 3rd',
     severity: 'warning',
     timestamp: '2024-01-15T08:30:00.000Z',
   },
