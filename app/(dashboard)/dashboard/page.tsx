@@ -61,8 +61,8 @@ const alerts: Alert[] = [
   {
     id: '1',
     type: 'warning',
-    message: 'ER department is over capacity',
-    messageAr: 'قسم الطوارئ تجاوز السعة المحددة (29 مريض / 11 سرير)',
+    title: 'ER department is over capacity',
+    titleAr: 'قسم الطوارئ تجاوز السعة المحددة (29 مريض / 11 سرير)',
     department: 'الطوارئ',
     severity: 'critical',
     timestamp: '2024-01-15T10:30:00.000Z',
@@ -70,8 +70,8 @@ const alerts: Alert[] = [
   {
     id: '2',
     type: 'low_staff',
-    message: 'Low nurse to patient ratio',
-    messageAr: 'نسبة الممرضين للمرضى منخفضة في قسم الطابق 9',
+    title: 'Low nurse to patient ratio',
+    titleAr: 'نسبة الممرضين للمرضى منخفضة في قسم الطابق 9',
     department: 'الطابق 9',
     severity: 'warning',
     timestamp: '2024-01-15T09:30:00.000Z',
@@ -79,8 +79,8 @@ const alerts: Alert[] = [
   {
     id: '3',
     type: 'isolation',
-    message: 'New isolation case registered',
-    messageAr: 'تم تسجيل حالة عزل جديدة - CONTACT isolation',
+    title: 'New isolation case registered',
+    titleAr: 'تم تسجيل حالة عزل جديدة - CONTACT isolation',
     department: 'ICU 3rd',
     severity: 'warning',
     timestamp: '2024-01-15T08:30:00.000Z',
