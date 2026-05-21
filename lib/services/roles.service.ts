@@ -100,6 +100,16 @@ export const ALL_PERMISSIONS: PermissionKey[] = [...PERMISSION_KEYS]
 
 export const DEFAULT_ROLES: Omit<RoleRecord, 'id' | 'createdAt' | 'updatedAt'>[] = [
   {
+    key: 'it_admin',
+    name: 'IT Admin',
+    nameAr: 'مدير تقنية المعلومات',
+    description: 'إدارة المستخدمين والصلاحيات والإعدادات التقنية',
+    permissions: [...ALL_PERMISSIONS],
+    isActive: true,
+    isDefault: false,
+    order: 0,
+  },
+  {
     key: 'admin',
     name: 'System Admin',
     nameAr: 'مدير النظام',
