@@ -10,14 +10,14 @@ export class FirestorePendingUserRepository implements IPendingUserRepository {
   async getAll(): Promise<PendingUserRecord[]> {
     try {
       const snap = await getDocs(collection(getFirestoreDb(), COL))
-      return snap.docs.map((d) => ({ id: d.id, ...d.data() } as PendingUserRecord))
+      return snap.docs.map((d) => ({ ...d.data(), id: d.id } as PendingUserRecord))
     } catch { return [] }
   }
 
   async getById(id: string): Promise<PendingUserRecord | undefined> {
     try {
       const snap = await getDoc(doc(getFirestoreDb(), COL, id))
-      return snap.exists() ? ({ id: snap.id, ...snap.data() } as PendingUserRecord) : undefined
+      return snap.exists() ? ({ ...snap.data(), id: snap.id } as PendingUserRecord) : undefined
     } catch { return undefined }
   }
 
@@ -28,9 +28,9 @@ export class FirestorePendingUserRepository implements IPendingUserRepository {
     const existing = await getDoc(ref)
     if (existing.exists()) {
       const existingData = existing.data() as PendingUserRecord
-      // Allow re-registration if previously rejected
+      // Allow re-registration only if previously rejected
       if (existingData.status !== 'rejected') {
-        return { id: existing.id, ...existingData }
+        return { ...existingData, id: existing.id }
       }
     }
     const entry: PendingUserRecord = {
@@ -48,7 +48,7 @@ export class FirestorePendingUserRepository implements IPendingUserRepository {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       await updateDoc(ref, updates as any)
       const snap = await getDoc(ref)
-      return snap.exists() ? ({ id: snap.id, ...snap.data() } as PendingUserRecord) : undefined
+      return snap.exists() ? ({ ...snap.data(), id: snap.id } as PendingUserRecord) : undefined
     } catch { return undefined }
   }
 }
