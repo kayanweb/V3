@@ -1,37 +1,45 @@
 import {
   collection, doc, getDoc, getDocs, addDoc, setDoc, updateDoc, deleteDoc,
-  query, where, Timestamp,
+  query, where, Timestamp, serverTimestamp,
 } from 'firebase/firestore'
 import { getFirestoreDb } from '@/lib/firebase'
 import type { IUserRepository, UserRecord } from '../contracts'
 
 const COL = 'users'
 
+/**
+ * Safely convert a Firestore field to an ISO string.
+ * Handles: Firestore Timestamp, plain Date, ISO string, undefined/null.
+ */
+function toISO(val: unknown): string | undefined {
+  if (!val) return undefined
+  if (typeof val === 'string') return val
+  if (val instanceof Date) return val.toISOString()
+  // Firestore Timestamp (has .toDate())
+  if (typeof (val as any).toDate === 'function') return (val as any).toDate().toISOString()
+  return undefined
+}
+
+function mapDoc(id: string, data: Record<string, unknown>): UserRecord {
+  return {
+    ...(data as UserRecord),
+    id,
+    createdAt: toISO(data.createdAt),
+    updatedAt: toISO(data.updatedAt),
+    lastLogin: toISO(data.lastLogin),
+  } as UserRecord
+}
+
 export class FirestoreUserRepository implements IUserRepository {
   async getAll(): Promise<UserRecord[]> {
     const snap = await getDocs(collection(getFirestoreDb(), COL))
-    return snap.docs.map((d) => {
-      const data = d.data();
-      return {
-        id: d.id,
-        ...data,
-        createdAt: (data.createdAt as Timestamp)?.toDate().toISOString(),
-        updatedAt: (data.updatedAt as Timestamp)?.toDate().toISOString(),
-        lastLogin: (data.lastLogin as Timestamp)?.toDate().toISOString(),
-      } as UserRecord;
-    });
+    return snap.docs.map((d) => mapDoc(d.id, d.data() as Record<string, unknown>))
   }
 
   async getById(id: string): Promise<UserRecord | undefined> {
     const snap = await getDoc(doc(getFirestoreDb(), COL, id))
-    if (!snap.exists()) return undefined;
-    const data = snap.data();
-    return {
-      id: snap.id, ...data,
-      createdAt: (data.createdAt as Timestamp)?.toDate().toISOString(),
-      updatedAt: (data.updatedAt as Timestamp)?.toDate().toISOString(),
-      lastLogin: (data.lastLogin as Timestamp)?.toDate().toISOString(),
-    } as UserRecord;
+    if (!snap.exists()) return undefined
+    return mapDoc(snap.id, snap.data() as Record<string, unknown>)
   }
 
   async getByEmployeeCode(code: string): Promise<UserRecord | undefined> {
@@ -39,39 +47,31 @@ export class FirestoreUserRepository implements IUserRepository {
     const snap = await getDocs(q)
     if (snap.empty) return undefined
     const d = snap.docs[0]
-    const data = d.data();
-    return {
-      id: d.id, ...data,
-      createdAt: (data.createdAt as Timestamp)?.toDate().toISOString(),
-      updatedAt: (data.updatedAt as Timestamp)?.toDate().toISOString(),
-      lastLogin: (data.lastLogin as Timestamp)?.toDate().toISOString(),
-    } as UserRecord;
+    return mapDoc(d.id, d.data() as Record<string, unknown>)
   }
 
   async create(user: Omit<UserRecord, 'id' | 'createdAt' | 'updatedAt'> & { id?: string }): Promise<UserRecord> {
-    const now = Timestamp.now()
     const { id: suppliedId, ...rest } = user as { id?: string } & typeof user
-    const data: Omit<UserRecord, 'id'> = { ...rest, createdAt: now.toDate().toISOString(), updatedAt: now.toDate().toISOString() }
+    const now = new Date().toISOString()
+    const data = { ...rest, createdAt: now, updatedAt: now }
+
     if (suppliedId) {
-      // If caller supplied an id (e.g. Firebase UID), use setDoc
       const ref = doc(getFirestoreDb(), COL, suppliedId)
       await setDoc(ref, data, { merge: true })
-      const snap = await getDoc(ref);
-      return this.getById(suppliedId) as Promise<UserRecord>; // Re-fetch to ensure proper timestamp conversion
+      const result = await this.getById(suppliedId)
+      return result as UserRecord
     }
     const ref = await addDoc(collection(getFirestoreDb(), COL), data)
-    return this.getById(ref.id) as Promise<UserRecord>; // Re-fetch to ensure proper timestamp conversion
+    const result = await this.getById(ref.id)
+    return result as UserRecord
   }
 
   async update(id: string, updates: Partial<UserRecord>): Promise<UserRecord | undefined> {
     const ref = doc(getFirestoreDb(), COL, id)
-    const payload = { ...updates, updatedAt: Timestamp.now() }
-    // Convert string dates in updates to Timestamps if necessary, e.g., lastLogin
-    if (typeof payload.lastLogin === 'string') {
-      payload.lastLogin = Timestamp.fromDate(new Date(payload.lastLogin as string)) as unknown as string;
-    }
+    // Always store updatedAt as ISO string (consistent with create)
+    const payload = { ...updates, updatedAt: new Date().toISOString() }
     await updateDoc(ref, payload as any) // eslint-disable-line @typescript-eslint/no-explicit-any
-    return this.getById(id); // Re-fetch to ensure proper timestamp conversion
+    return this.getById(id)
   }
 
   async delete(id: string): Promise<void> {
