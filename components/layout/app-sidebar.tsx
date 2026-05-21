@@ -6,47 +6,55 @@ import { usePathname } from 'next/navigation'
 import { HeartPulse, ChevronDown, LogOut } from 'lucide-react'
 
 import {
-  Sidebar,
-  SidebarContent,
-  SidebarFooter,
-  SidebarGroup,
-  SidebarGroupContent,
-  SidebarGroupLabel,
-  SidebarHeader,
-  SidebarMenu,
-  SidebarMenuButton,
-  SidebarMenuItem,
-  SidebarMenuSub,
-  SidebarMenuSubButton,
-  SidebarMenuSubItem,
+  Sidebar, SidebarContent, SidebarFooter, SidebarGroup,
+  SidebarGroupContent, SidebarGroupLabel, SidebarHeader,
+  SidebarMenu, SidebarMenuButton, SidebarMenuItem,
+  SidebarMenuSub, SidebarMenuSubButton, SidebarMenuSubItem,
 } from '@/components/ui/sidebar'
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from '@/components/ui/collapsible'
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { Badge } from '@/components/ui/badge'
 import { navigationConfig } from '@/config/navigation'
 import { useAuth } from '@/contexts/auth-context'
 import { useLang } from '@/contexts/lang-context'
+import { isFirebaseConfigured, getFirestoreDb } from '@/lib/firebase'
+import { collection, onSnapshot, query, where } from 'firebase/firestore'
+
+// ── Real-time pending count hook ──────────────────────────────
+function usePendingCount(enabled: boolean): number {
+  const [count, setCount] = React.useState(0)
+
+  React.useEffect(() => {
+    if (!enabled || !isFirebaseConfigured()) return
+
+    const q = query(
+      collection(getFirestoreDb(), 'pendingUsers'),
+      where('status', '==', 'pending'),
+    )
+    const unsub = onSnapshot(q, (snap) => setCount(snap.size), () => {})
+    return () => unsub()
+  }, [enabled])
+
+  return count
+}
 
 export function AppSidebar() {
   const pathname = usePathname()
   const { user, can, logout } = useAuth()
   const { isAr } = useLang()
 
-  // Defer everything that differs between server/client to after mount
   const [mounted, setMounted] = React.useState(false)
-  React.useEffect(() => {
-    setMounted(true)
-  }, [])
+  React.useEffect(() => { setMounted(true) }, [])
+
+  // Only fetch badge for admins / it_admin
+  const canApprovePending = mounted && (can('users.approve') || can('users.edit'))
+  const pendingCount = usePendingCount(canApprovePending)
 
   const isActive = (href: string) => {
     if (!mounted) return false
     return pathname === href || pathname.startsWith(href + '/')
   }
 
-  // On server (and first paint) render all items; after mount filter by permission
   const getFilteredItems = (items: typeof navigationConfig[0]['items']) => {
     if (!mounted) return items
     return items.filter((item) => !item.permission || can(item.permission))
@@ -81,14 +89,15 @@ export function AppSidebar() {
 
           return (
             <SidebarGroup key={group.title}>
-              <SidebarGroupLabel>
-                {isAr ? group.titleAr : group.title}
-              </SidebarGroupLabel>
+              <SidebarGroupLabel>{isAr ? group.titleAr : group.title}</SidebarGroupLabel>
               <SidebarGroupContent>
                 <SidebarMenu>
                   {filteredItems.map((item) => {
                     const active = isActive(item.href)
                     const Icon = item.icon
+
+                    // Pending badge for /admin/pending-users
+                    const showBadge = item.href === '/admin/pending-users' && pendingCount > 0
 
                     if (item.children && item.children.length > 0) {
                       return (
@@ -105,10 +114,7 @@ export function AppSidebar() {
                               <SidebarMenuSub>
                                 {item.children.map((subItem) => (
                                   <SidebarMenuSubItem key={subItem.href}>
-                                    <SidebarMenuSubButton
-                                      asChild
-                                      isActive={mounted && pathname === subItem.href}
-                                    >
+                                    <SidebarMenuSubButton asChild isActive={mounted && pathname === subItem.href}>
                                       <Link href={subItem.href}>
                                         <span>{isAr ? subItem.titleAr : subItem.title}</span>
                                       </Link>
@@ -131,7 +137,12 @@ export function AppSidebar() {
                         >
                           <Link href={item.href}>
                             <Icon className="h-4 w-4" />
-                            <span>{isAr ? item.titleAr : item.title}</span>
+                            <span className="flex-1">{isAr ? item.titleAr : item.title}</span>
+                            {showBadge && (
+                              <Badge className="h-5 min-w-5 px-1.5 text-xs bg-red-500 hover:bg-red-500 text-white animate-pulse shrink-0">
+                                {pendingCount}
+                              </Badge>
+                            )}
                           </Link>
                         </SidebarMenuButton>
                       </SidebarMenuItem>
@@ -169,10 +180,10 @@ export function AppSidebar() {
               <SidebarMenuButton
                 className="text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
                 onClick={() => logout()}
-                tooltip={isAr ? "تسجيل الخروج" : "Logout"}
+                tooltip={isAr ? 'تسجيل الخروج' : 'Logout'}
               >
                 <LogOut className="h-4 w-4" />
-                <span>{isAr ? "تسجيل الخروج" : "Logout"}</span>
+                <span>{isAr ? 'تسجيل الخروج' : 'Logout'}</span>
               </SidebarMenuButton>
             </SidebarMenuItem>
           )}
