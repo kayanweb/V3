@@ -58,6 +58,7 @@ export default defineConfig({
     outDir: path.resolve(import.meta.dirname, "dist/public"),
     emptyOutDir: true,
   },
+  envPrefix: ["VITE_", "NEXT_PUBLIC_"],
   server: {
     port,
     strictPort: true,
