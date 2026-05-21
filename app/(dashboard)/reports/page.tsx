@@ -18,8 +18,7 @@ import {
 } from '@/components/ui/select'
 import { StatusBadge } from '@/components/ui/status-badge'
 import { DataTable, Column } from '@/components/ui/data-table'
-import { getAllReports, getReportsByFilters, ReportRecord, ReportShift, ReportStatus } from '@/lib/services/reports.service'
-
+import { getReports, getReportsByFilters, type ReportRecord } from '@/lib/services/reports.service'
 export default function ReportsArchivePage() {
   const [allReports, setAllReports] = useState<ReportRecord[]>([])
   const [filteredReports, setFilteredReports] = useState<ReportRecord[]>([])
