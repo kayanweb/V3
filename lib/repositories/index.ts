@@ -71,6 +71,7 @@ export type {
   IncidentStatus,
   AuditLogRecord,
   PendingStatus,
+  UserPreferences,
 } from './contracts'
 
 // Singleton instances — lazily created

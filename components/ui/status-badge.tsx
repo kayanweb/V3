@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils'
 type StatusType = 
   | 'done' | 'pending' | 'na' 
   | 'active' | 'inactive' 
-  | 'draft' | 'submitted' | 'approved'
+  | 'draft' | 'submitted' | 'approved' | 'rejected'
   | 'admitted' | 'discharged' | 'transferred'
   | 'open' | 'resolved'
   | 'morning' | 'evening' | 'night'
@@ -51,6 +51,10 @@ const statusConfig: Record<StatusType, { label: string; className: string }> = {
   approved: {
     label: 'معتمد',
     className: 'bg-success/10 text-success border-success/20 hover:bg-success/20',
+  },
+  rejected: {
+    label: 'مرفوض',
+    className: 'bg-destructive/10 text-destructive border-destructive/20 hover:bg-destructive/20',
   },
   // Patient statuses
   admitted: {

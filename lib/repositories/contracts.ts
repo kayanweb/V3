@@ -567,7 +567,7 @@ export interface AuditLogRecord {
 }
 
 export interface IAuditLogRepository {
-  add(entry: Omit<AuditLogRecord, 'id' | 'timestamp'>): Promise<void>
+  add(entry: Omit<AuditLogRecord, 'id'>): Promise<void>
   getByUser(userId: string, limit?: number): Promise<AuditLogRecord[]>
   getByCollection(collection: string, limit?: number): Promise<AuditLogRecord[]>
   getRecent(limit?: number): Promise<AuditLogRecord[]>

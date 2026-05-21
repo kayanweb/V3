@@ -14,8 +14,13 @@
 export interface Alert {
   id: string;
   title: string;
+  titleAr?: string;
   description: string;
+  messageAr?: string;
   type: 'info' | 'warning' | 'destructive' | 'success';
+  severity?: 'critical' | 'warning' | 'info';
+  department?: string;
+  timestamp?: string;
   createdAt: string;
   read?: boolean;
 }
@@ -294,7 +299,7 @@ export interface InventoryItem {
 }
 // ─── Notifications ──────────────────────────────────────────────
 
-export type NotificationType = 'alert' | 'info' | 'warning' | 'success' | 'error'
+export type NotificationType = 'alert' | 'info' | 'warning' | 'success' | 'error' | 'emergency_code' | 'task_assigned' | 'handover_request'
 export type NotificationStatus = 'unread' | 'read'
 
 export interface NotificationRecord {
@@ -612,9 +617,147 @@ export interface AuditLogRecord {
 }
 
 export interface IAuditLogRepository {
-  add(entry: Omit<AuditLogRecord, 'id' | 'timestamp'>): Promise<void>
+  add(entry: Omit<AuditLogRecord, 'id'>): Promise<void>
   getByUser(userId: string, limit?: number): Promise<AuditLogRecord[]>
   getByCollection(collection: string, limit?: number): Promise<AuditLogRecord[]>
   getRecent(limit?: number): Promise<AuditLogRecord[]>
   getByDateRange(start: string, end: string): Promise<AuditLogRecord[]>
+}
+
+// ─── Emergency Codes ─────────────────────────────────────────
+
+export type EmergencyCodeType = 'blue' | 'red' | 'pink' | 'orange' | 'yellow' | 'black' | 'green'
+
+export interface EmergencyCode {
+  id: string
+  type: EmergencyCodeType
+  location: string
+  department: string
+  calledBy: string
+  calledById: string
+  status: 'active' | 'resolved' | 'cancelled'
+  startTime: string
+  endTime?: string
+  responders: string[]
+  notes?: string
+  outcome?: string
+}
+
+// ─── Nursing Tasks (UI shape) ─────────────────────────────────
+
+export interface NursingTask {
+  id: string
+  patientId?: string
+  patientName?: string
+  department: string
+  type: 'medication' | 'assessment' | 'procedure' | 'documentation' | 'communication' | 'hygiene' | 'nutrition' | 'other'
+  title: string
+  description: string
+  priority: 'low' | 'medium' | 'high' | 'urgent'
+  assignedTo: string
+  assignedToId?: string
+  dueTime: string
+  status: 'pending' | 'in_progress' | 'completed' | 'overdue' | 'cancelled'
+  notes?: string
+  completedAt?: string
+  completedBy?: string
+}
+
+// ─── Training & Certifications ────────────────────────────────
+
+export interface Training {
+  id: string
+  name: string
+  nameAr: string
+  type: 'mandatory' | 'specialized' | 'optional'
+  duration: number
+  validityPeriod: number
+  provider: string
+  description: string
+}
+
+export interface StaffCertification {
+  id: string
+  staffId: string
+  staffName: string
+  trainingId: string
+  trainingName: string
+  completedDate: string
+  expiryDate: string
+  status: 'valid' | 'expiring_soon' | 'expired'
+}
+
+// ─── Vital Signs (UI shape) ───────────────────────────────────
+
+export interface VitalSigns {
+  id: string
+  patientId: string
+  timestamp: string
+  temperature: number
+  bloodPressureSystolic: number
+  bloodPressureDiastolic: number
+  heartRate: number
+  respiratoryRate: number
+  oxygenSaturation: number
+  painLevel: number
+  bloodGlucose?: number
+  weight?: number
+  height?: number
+  notes?: string
+  recordedBy?: string
+  recordedByName?: string
+  patientName?: string
+  patientMrn?: string
+  createdAt?: string
+}
+
+// ─── Notifications (UI shape) ─────────────────────────────────
+
+export interface Notification {
+  id: string
+  type: NotificationType
+  title: string
+  titleAr?: string
+  message: string
+  messageAr?: string
+  priority?: 'urgent' | 'high' | 'normal' | 'low'
+  read: boolean
+  createdAt: string
+  link?: string
+  actionUrl?: string
+  actionLabel?: string
+  actionLabelAr?: string
+  recipientId?: string
+  senderName?: string
+  data?: Record<string, unknown>
+}
+
+// ─── Activity Feed ────────────────────────────────────────────
+
+export interface Activity {
+  id: string
+  type: string
+  userId: string
+  userName: string
+  userRole?: string
+  description?: string
+  action?: string
+  actionAr?: string
+  target?: string
+  department?: string
+  timestamp: string
+}
+
+// ─── User Presence ────────────────────────────────────────────
+
+export interface UserPresence {
+  id: string
+  userId?: string
+  name: string
+  nameAr?: string
+  role: string
+  isOnline?: boolean
+  status: 'online' | 'away' | 'offline'
+  lastSeen: string
+  department?: string
 }

@@ -1,6 +1,5 @@
 import { doc, getDoc, setDoc } from 'firebase/firestore'
 import { getFirestoreDb } from '@/lib/firebase'
-import bcrypt from 'bcryptjs'
 import type { IEmployeeCredentialsRepository, EmployeeCredentials } from '../contracts'
 
 const COL = 'employeeCredentials'
@@ -15,7 +14,7 @@ export class FirestoreEmployeeCredentialsRepository implements IEmployeeCredenti
 
   async set(employeeId: string, password: string, mustChange: boolean): Promise<void> {
     try {
-      const hashed = await bcrypt.hash(password, 10)
+      const { default: bcrypt } = await import("bcryptjs"); const hashed = await bcrypt.hash(password, 10)
       await setDoc(doc(getFirestoreDb(), COL, employeeId), { employeeId, password: hashed, mustChange })
     } catch { /* ignore */ }
   }

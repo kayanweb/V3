@@ -4,7 +4,7 @@
  */
 import { userRepo, credentialsRepo, pendingUserRepo, auditLogRepo } from '@/lib/repositories'
 import { getAllRoles } from './roles.service'
-import type { UserRecord, EmployeeCredentials, AuditLogRecord } from '@/lib/repositories'
+import type { UserRecord, EmployeeCredentials, AuditLogRecord, UserPreferences } from '@/lib/repositories'
 
 export type { UserRecord }
 
@@ -69,7 +69,7 @@ export async function updateUserPreferences(
   userId: string,
   preferences: Partial<UserRecord['preferences']>
 ): Promise<UserRecord | undefined> {
-  return userRepo().update(userId, { preferences })
+  return userRepo().update(userId, { preferences: preferences as UserPreferences })
 }
 
 // ─── Employee Credentials ────────────────────────────────────
@@ -158,6 +158,7 @@ export async function auditUserAction(params: {
     auditLogRepo().add({
       ...params,
       collection: 'users',
+      timestamp: new Date().toISOString(),
     })
   ).catch(() => {})
 }

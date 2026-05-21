@@ -56,8 +56,8 @@ function AlertItem({ alert }: { alert: Alert }) {
 
   useEffect(() => {
     // Format time only on client to avoid hydration mismatch
-    setFormattedTime(new Date(alert.timestamp).toLocaleTimeString('ar-EG'))
-  }, [alert.timestamp])
+    setFormattedTime(new Date(alert.timestamp ?? alert.createdAt).toLocaleTimeString('ar-EG'))
+  }, [alert.timestamp, alert.createdAt])
 
   return (
     <div

@@ -48,6 +48,8 @@ const taskTypeConfig = {
   procedure: { label: 'إجراء', icon: MoreHorizontal, color: 'text-purple-600', bgColor: 'bg-purple-100' },
   documentation: { label: 'توثيق', icon: FileText, color: 'text-amber-600', bgColor: 'bg-amber-100' },
   communication: { label: 'تواصل', icon: MessageSquare, color: 'text-cyan-600', bgColor: 'bg-cyan-100' },
+  hygiene: { label: 'نظافة', icon: MoreHorizontal, color: 'text-teal-600', bgColor: 'bg-teal-100' },
+  nutrition: { label: 'تغذية', icon: MoreHorizontal, color: 'text-orange-600', bgColor: 'bg-orange-100' },
   other: { label: 'أخرى', icon: ListTodo, color: 'text-gray-600', bgColor: 'bg-gray-100' },
 }
 

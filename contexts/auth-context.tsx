@@ -10,7 +10,6 @@ import {
   User as FirebaseUser,
 } from 'firebase/auth'
 import { isFirebaseConfigured, getFirebaseAuth } from '@/lib/firebase'
-import bcrypt from 'bcryptjs'
 import {
   getUserById,
   saveUserProfile,
@@ -222,7 +221,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const storedPwd = creds.password
         // Check if stored password is a bcrypt hash (starts with $2)
         if (storedPwd.startsWith('$2')) {
-          passwordValid = await bcrypt.compare(password, storedPwd)
+          const { default: bcrypt } = await import("bcryptjs"); passwordValid = await bcrypt.compare(password, storedPwd)
         } else {
           // Legacy plain-text password - compare directly and rehash on success
           passwordValid = password === storedPwd

@@ -8,7 +8,7 @@ import type { IAuditLogRepository, AuditLogRecord } from '../contracts'
 const COL = 'audit_logs'
 
 export class FirestoreAuditLogRepository implements IAuditLogRepository {
-  async add(entry: Omit<AuditLogRecord, 'id' | 'timestamp'>): Promise<void> {
+  async add(entry: Omit<AuditLogRecord, 'id'>): Promise<void> {
     try {
       await addDoc(collection(getFirestoreDb(), COL), {
         ...entry,
