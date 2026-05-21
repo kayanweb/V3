@@ -396,6 +396,13 @@ export const navigationConfig: NavGroup[] = [
     titleAr: 'الإدارة والنظام',
     items: [
       {
+        title: 'Pending Approvals',
+        titleAr: 'طلبات الانضمام',
+        href: '/admin/pending-users',
+        icon: Clock,
+        permission: 'users.approve',
+      },
+      {
         title: 'User Management',
         titleAr: 'إدارة المستخدمين',
         href: '/admin/users',
