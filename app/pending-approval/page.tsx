@@ -19,39 +19,42 @@ export default function PendingApprovalPage() {
   const { lang, toggleLang } = useLang()
   const isAr = lang === 'ar'
 
-  const [status, setStatus]             = useState<'pending' | 'approved' | 'rejected'>('pending')
-  const [rejectionReason, setRejectionReason] = useState('')
-  const snapshotUnsubRef = useRef<(() => void) | null>(null)
+  const [status, setStatus]                     = useState<'pending' | 'approved' | 'rejected'>('pending')
+  const [rejectionReason, setRejectionReason]   = useState('')
+  const pendingUnsubRef = useRef<(() => void) | null>(null)
+  const usersUnsubRef   = useRef<(() => void) | null>(null)
+  const handledRef      = useRef(false) // prevent double-handling
 
-  // ── Guard: already-active user should go to dashboard ────────
+  // ── Guard: active user → dashboard ───────────────────────────
   useEffect(() => {
-    if (!isLoading && isAuthenticated && user) {
-      router.replace('/dashboard')
-    }
+    if (!isLoading && isAuthenticated && user) router.replace('/dashboard')
   }, [isAuthenticated, user, isLoading, router])
 
-  // ── Real-time Firestore listener ──────────────────────────────
+  // ── Dual real-time listeners ──────────────────────────────────
   useEffect(() => {
     if (!isFirebaseConfigured()) { router.push('/login'); return }
 
-    function attachSnapshot(uid: string) {
-      // Clean up any previous listener
-      if (snapshotUnsubRef.current) {
-        snapshotUnsubRef.current()
-        snapshotUnsubRef.current = null
-      }
+    function attachListeners(uid: string) {
+      // Clean up any previous listeners
+      pendingUnsubRef.current?.()
+      usersUnsubRef.current?.()
+      handledRef.current = false
 
-      const ref = doc(getFirestoreDb(), 'pendingUsers', uid)
-      const unsub = onSnapshot(ref, async (snap) => {
+      const db = getFirestoreDb()
+
+      // ── Listener 1: pendingUsers/{uid} ───────────────────────
+      // Fires when admin updates status to 'approved' or 'rejected'
+      pendingUnsubRef.current = onSnapshot(doc(db, 'pendingUsers', uid), async (snap) => {
+        if (handledRef.current) return
+
         if (!snap.exists()) {
-          // Pending doc may not exist yet (mid-signup race) or was deleted.
-          // Check if the user was moved to the active users collection.
+          // Doc deleted (manual Firebase Console move) — check users collection
           const userRecord = await getUserById(uid)
-          if (userRecord && userRecord.status === 'active') {
-            await handleApproved(userRecord.id)
+          if (userRecord?.status === 'active') {
+            handledRef.current = true
+            await handleApproved(uid)
           }
-          // Otherwise just wait — don't redirect to login immediately.
-          // The admin may still be processing, or the doc is being created.
+          // If no users record either, just wait (users listener will catch it)
           return
         }
 
@@ -61,6 +64,7 @@ export default function PendingApprovalPage() {
         }
 
         if (data.status === 'approved') {
+          handledRef.current = true
           await handleApproved(uid)
         } else if (data.status === 'rejected') {
           setRejectionReason(data.rejectionReason || '')
@@ -71,37 +75,50 @@ export default function PendingApprovalPage() {
         }
       })
 
-      snapshotUnsubRef.current = unsub
+      // ── Listener 2: users/{uid} ──────────────────────────────
+      // Fires when admin creates/activates the user directly in users collection
+      usersUnsubRef.current = onSnapshot(doc(db, 'users', uid), async (snap) => {
+        if (handledRef.current) return
+        if (!snap.exists()) return // User record not created yet — keep waiting
+
+        const data = snap.data() as { status?: string }
+        if (data.status === 'active') {
+          handledRef.current = true
+          await handleApproved(uid)
+        }
+      })
     }
 
-    // 1. Try synchronous Firebase Auth (immediate — no async needed)
-    const authCurrentUser = getFirebaseAuth().currentUser
-    if (authCurrentUser) {
-      attachSnapshot(authCurrentUser.uid)
-      return () => { snapshotUnsubRef.current?.() }
+    // 1. Synchronous Firebase Auth (immediate — available right after signup)
+    const currentUser = getFirebaseAuth().currentUser
+    if (currentUser) {
+      attachListeners(currentUser.uid)
+      return () => { pendingUnsubRef.current?.(); usersUnsubRef.current?.() }
     }
 
-    // 2. Try context values (may already be populated by onAuthStateChanged)
+    // 2. Context values (set by auth-context onAuthStateChanged)
     const ctxUid = user?.id ?? pendingEntry?.id
     if (ctxUid) {
-      attachSnapshot(ctxUid)
-      return () => { snapshotUnsubRef.current?.() }
+      attachListeners(ctxUid)
+      return () => { pendingUnsubRef.current?.(); usersUnsubRef.current?.() }
     }
 
-    // 3. Wait for Firebase Auth to initialise (cold page load)
+    // 3. Wait for Firebase Auth (cold page load / hard refresh)
+    let started = false
     const authUnsub = onAuthStateChanged(getFirebaseAuth(), (fbUser) => {
-      if (fbUser) {
-        authUnsub() // stop listening once we have the user
-        attachSnapshot(fbUser.uid)
-      } else if (!isLoading) {
-        // Auth fully loaded and no user → send to login
+      if (fbUser && !started) {
+        started = true
+        authUnsub()
+        attachListeners(fbUser.uid)
+      } else if (!fbUser && !isLoading) {
         router.replace('/login')
       }
     })
 
     return () => {
       authUnsub()
-      snapshotUnsubRef.current?.()
+      pendingUnsubRef.current?.()
+      usersUnsubRef.current?.()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id, pendingEntry?.id])
@@ -133,20 +150,15 @@ export default function PendingApprovalPage() {
     setTimeout(() => router.replace('/dashboard'), 1200)
   }
 
-  // Don't flash the page if the user is already active
   if (!isLoading && isAuthenticated && user) return null
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-teal-50 via-white to-blue-50 dark:from-slate-950 dark:via-slate-900 dark:to-slate-800 flex items-center justify-center p-4">
-      <button
-        onClick={toggleLang}
-        className="fixed top-4 left-4 px-3 py-1.5 rounded-full border border-teal-300 bg-white/80 text-xs font-bold text-teal-700 hover:bg-teal-50 z-50 shadow-sm"
-      >
+      <button onClick={toggleLang} className="fixed top-4 left-4 px-3 py-1.5 rounded-full border border-teal-300 bg-white/80 text-xs font-bold text-teal-700 hover:bg-teal-50 z-50 shadow-sm">
         {isAr ? 'EN' : 'ع'}
       </button>
 
       <div className="w-full max-w-md space-y-6">
-        {/* Logo */}
         <div className="text-center space-y-3">
           <div className="flex justify-center">
             <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-teal-600 shadow-lg">
@@ -157,32 +169,20 @@ export default function PendingApprovalPage() {
         </div>
 
         <Card className="shadow-xl border-0 bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm overflow-hidden">
-          <div className={`h-1.5 w-full ${
-            status === 'approved' ? 'bg-green-500' :
-            status === 'rejected' ? 'bg-red-500' :
-            'bg-amber-400'
-          }`} />
-
+          <div className={`h-1.5 w-full ${status === 'approved' ? 'bg-green-500' : status === 'rejected' ? 'bg-red-500' : 'bg-amber-400'}`} />
           <CardContent className="pt-8 pb-8 flex flex-col items-center text-center space-y-5">
-            {/* Icon */}
             {status === 'pending'  && <div className="flex h-20 w-20 items-center justify-center rounded-full bg-amber-50  dark:bg-amber-950  animate-pulse"><Clock        className="h-10 w-10 text-amber-500"  /></div>}
             {status === 'approved' && <div className="flex h-20 w-20 items-center justify-center rounded-full bg-green-50  dark:bg-green-950" ><CheckCircle2 className="h-10 w-10 text-green-500"  /></div>}
             {status === 'rejected' && <div className="flex h-20 w-20 items-center justify-center rounded-full bg-red-50    dark:bg-red-950"  ><XCircle      className="h-10 w-10 text-red-500"    /></div>}
 
-            {/* ── Pending ──────────────────────────────── */}
             {status === 'pending' && (
               <>
                 <div className="space-y-2">
-                  <h2 className="text-xl font-bold">
-                    {isAr ? 'في انتظار الموافقة' : 'Awaiting Approval'}
-                  </h2>
+                  <h2 className="text-xl font-bold">{isAr ? 'في انتظار الموافقة' : 'Awaiting Approval'}</h2>
                   <p className="text-muted-foreground text-sm leading-relaxed max-w-sm">
-                    {isAr
-                      ? 'تم تسجيل طلبك بنجاح. سيتم إعلامك فور مراجعة المدير لطلبك.'
-                      : "Your request has been submitted. You'll be notified once an admin reviews it."}
+                    {isAr ? 'تم تسجيل طلبك بنجاح. سيتم إعلامك فور مراجعة المدير لطلبك.' : "Your request has been submitted. You'll be notified once an admin reviews it."}
                   </p>
                 </div>
-
                 <div className="w-full space-y-2 text-sm">
                   {[
                     { done: true,  ar: 'إنشاء الحساب / تسجيل الدخول', en: 'Account created / signed in' },
@@ -194,60 +194,40 @@ export default function PendingApprovalPage() {
                       <div className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold ${step.done ? 'bg-green-500 text-white' : 'bg-muted-foreground/20 text-muted-foreground'}`}>
                         {step.done ? '✓' : i + 1}
                       </div>
-                      <span className={step.done ? 'text-green-700 dark:text-green-400 font-medium' : 'text-muted-foreground'}>
-                        {isAr ? step.ar : step.en}
-                      </span>
+                      <span className={step.done ? 'text-green-700 dark:text-green-400 font-medium' : 'text-muted-foreground'}>{isAr ? step.ar : step.en}</span>
                     </div>
                   ))}
                 </div>
-
                 <Button variant="ghost" className="gap-2 text-muted-foreground" onClick={logout}>
-                  <LogOut className="h-4 w-4" />
-                  {isAr ? 'خروج' : 'Logout'}
+                  <LogOut className="h-4 w-4" />{isAr ? 'خروج' : 'Logout'}
                 </Button>
-
                 <p className="text-xs text-muted-foreground">
-                  {isAr ? '🔴 هذه الصفحة تتحدث لحظياً — لا حاجة لتحديث يدوي'
-                        : '🔴 This page updates in real-time — no manual refresh needed'}
+                  {isAr ? '🔴 هذه الصفحة تتحدث لحظياً — لا حاجة لتحديث يدوي' : '🔴 This page updates in real-time — no manual refresh needed'}
                 </p>
               </>
             )}
 
-            {/* ── Approved ─────────────────────────────── */}
             {status === 'approved' && (
               <>
                 <div className="space-y-2">
-                  <h2 className="text-xl font-bold text-green-700 dark:text-green-400">
-                    {isAr ? 'تمت الموافقة! 🎉' : 'Approved! 🎉'}
-                  </h2>
-                  <p className="text-muted-foreground text-sm">
-                    {isAr ? 'تمت الموافقة على حسابك. جاري توجيهك للوحة التحكم...'
-                           : 'Your account has been approved. Redirecting to dashboard...'}
-                  </p>
+                  <h2 className="text-xl font-bold text-green-700 dark:text-green-400">{isAr ? 'تمت الموافقة! 🎉' : 'Approved! 🎉'}</h2>
+                  <p className="text-muted-foreground text-sm">{isAr ? 'تمت الموافقة على حسابك. جاري توجيهك للوحة التحكم...' : 'Your account has been approved. Redirecting to dashboard...'}</p>
                 </div>
                 <div className="h-6 w-6 animate-spin rounded-full border-2 border-teal-600 border-t-transparent" />
               </>
             )}
 
-            {/* ── Rejected ─────────────────────────────── */}
             {status === 'rejected' && (
               <>
                 <div className="space-y-2">
-                  <h2 className="text-xl font-bold text-red-600 dark:text-red-400">
-                    {isAr ? 'تم رفض الطلب' : 'Request Rejected'}
-                  </h2>
+                  <h2 className="text-xl font-bold text-red-600 dark:text-red-400">{isAr ? 'تم رفض الطلب' : 'Request Rejected'}</h2>
                   <p className="text-muted-foreground text-sm leading-relaxed max-w-sm">
-                    {rejectionReason || (isAr
-                      ? 'تم رفض طلب وصولك. يرجى التواصل مع مدير النظام.'
-                      : 'Your access request was rejected. Please contact the system administrator.')}
+                    {rejectionReason || (isAr ? 'تم رفض طلب وصولك. يرجى التواصل مع مدير النظام.' : 'Your access request was rejected. Please contact the system administrator.')}
                   </p>
-                  <p className="text-xs text-muted-foreground">
-                    {isAr ? 'سيتم تسجيل خروجك تلقائياً...' : 'You will be signed out automatically...'}
-                  </p>
+                  <p className="text-xs text-muted-foreground">{isAr ? 'سيتم تسجيل خروجك تلقائياً...' : 'You will be signed out automatically...'}</p>
                 </div>
                 <Button onClick={logout} variant="destructive" className="gap-2">
-                  <LogOut className="h-4 w-4" />
-                  {isAr ? 'العودة لتسجيل الدخول' : 'Back to Login'}
+                  <LogOut className="h-4 w-4" />{isAr ? 'العودة لتسجيل الدخول' : 'Back to Login'}
                 </Button>
               </>
             )}
