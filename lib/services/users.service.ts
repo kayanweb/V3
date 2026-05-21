@@ -110,11 +110,12 @@ export async function approveUser(
   const roleKeys = await computeRoleKeys([roleId])
 
   // Create user in users collection
+  // nameAr defaults to name if no separate Arabic name is available from the pending entry
   const user = await userRepo().create({
     id: pending.id,
     uid: pending.id,
     name: pending.name,
-    nameAr: pending.name,
+    nameAr: (pending as any).nameAr || pending.name,
     email: pending.email,
     photoURL: pending.photoURL,
     roles: [roleId],
