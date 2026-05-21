@@ -30,7 +30,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { Label } from '@/components/ui/label'
-import { InventoryItem } from '@/types'
+import type { InventoryItem } from '@/lib/repositories/contracts'
 import { inventoryService } from '@/lib/services/inventory.service'
 import { toast } from 'sonner'
 import {
