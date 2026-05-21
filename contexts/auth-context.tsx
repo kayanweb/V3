@@ -30,14 +30,6 @@ import type { UserRecord } from '@/lib/repositories'
 import type { RoleRecord } from '@/lib/services/roles.service'
 import type { PendingUserRecord } from '@/lib/services/pending-users.service'
 
-function safeToDate(value: any): Date {
-  if (!value) return new Date()
-  if (typeof value.toDate === 'function') return value.toDate()
-  if (typeof value === 'string') return new Date(value)
-  if (typeof value === 'number') return new Date(value)
-  return new Date()
-}
-
 export type UserRole = 'admin' | 'head_nurse' | 'supervisor' | 'staff' | 'it_admin'
 
 export interface AppUser {
@@ -104,6 +96,40 @@ async function buildAppUser(record: UserRecord, allRoles: RoleRecord[]): Promise
   }
 }
 
+// ─── Shared helper: resolve where a firebase user should go after auth ─────
+// Returns 'dashboard' | 'pending' | 'rejected' | 'new'
+async function resolveFirebaseUserDestination(uid: string): Promise<{
+  dest: 'dashboard' | 'pending' | 'rejected' | 'new'
+  record?: UserRecord
+  pendingEntry?: PendingUserRecord
+}> {
+  // 1. Check if already an active user
+  const record = await getUserById(uid)
+  if (record && record.status === 'active') {
+    return { dest: 'dashboard', record }
+  }
+
+  // 2. Check pending collection
+  const pendingEntry = await getPendingUserById(uid)
+  if (!pendingEntry) return { dest: 'new' }
+
+  if (pendingEntry.status === 'rejected') return { dest: 'rejected', pendingEntry }
+
+  // Approved but users record may not have been written yet — handle gracefully
+  if (pendingEntry.status === 'approved') {
+    // Try once more (approval creates the users record)
+    const updatedRecord = await getUserById(uid)
+    if (updatedRecord && updatedRecord.status === 'active') {
+      return { dest: 'dashboard', record: updatedRecord, pendingEntry }
+    }
+    // Approved but record not ready yet — stay on pending-approval; onSnapshot will catch it
+    return { dest: 'pending', pendingEntry }
+  }
+
+  // status === 'pending'
+  return { dest: 'pending', pendingEntry }
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser]                = useState<AppUser | null>(null)
   const [pendingEntry, setPendingEntry] = useState<PendingUserRecord | null>(null)
@@ -119,25 +145,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return rolesCache.current
   }
 
+  /* ── Restore session on page load / refresh ── */
   useEffect(() => {
     if (!isFirebaseConfigured()) { setIsLoading(false); return }
+
     const unsubscribe = onAuthStateChanged(getFirebaseAuth(), async (fbUser: FirebaseUser | null) => {
       try {
         if (fbUser) {
           const record = await getUserById(fbUser.uid)
           if (record && record.status === 'active') {
-            const roles = await loadRoles()
-            setUser(await buildAppUser(record, roles))
+            setUser(await buildAppUser(record, await loadRoles()))
             setPendingEntry(null)
             if (record.mustChangePassword) router.push('/change-password')
           } else {
             const entry = await getPendingUserById(fbUser.uid)
             if (entry?.status === 'approved') {
-              const roles = await loadRoles()
               const updatedRecord = await getUserById(fbUser.uid)
-              if (updatedRecord) setUser(await buildAppUser(updatedRecord, roles))
+              if (updatedRecord && updatedRecord.status === 'active') {
+                setUser(await buildAppUser(updatedRecord, await loadRoles()))
+                setPendingEntry(null)
+              } else if (entry) {
+                setPendingEntry(entry)
+              }
             } else if (entry?.status === 'rejected') {
               await signOut(getFirebaseAuth())
+              setUser(null)
+              setPendingEntry(null)
             } else if (entry) {
               setPendingEntry(entry)
             }
@@ -150,61 +183,88 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setIsLoading(false)
       }
     })
+
     return () => unsubscribe()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const login = useCallback((userData: AppUser) => { setUser(userData) }, [])
 
+  /* ─── Google Sign-In ─────────────────────────────────────── */
   const loginWithGoogle = useCallback(async () => {
     if (!isFirebaseConfigured()) throw new Error('Firebase is not configured.')
+
     const provider = new GoogleAuthProvider()
     const result   = await signInWithPopup(getFirebaseAuth(), provider)
     const fbUser   = result.user
-    await logLoginAttempt({ userId: fbUser.uid, userEmail: fbUser.email || '', method: 'google', success: true, timestamp: new Date().toISOString() })
-    const record = await getUserById(fbUser.uid)
-    if (record && record.status === 'active') {
+
+    await logLoginAttempt({
+      userId: fbUser.uid, userEmail: fbUser.email || '',
+      method: 'google', success: true, timestamp: new Date().toISOString(),
+    })
+
+    const { dest, record, pendingEntry: entry } = await resolveFirebaseUserDestination(fbUser.uid)
+
+    if (dest === 'dashboard' && record) {
       setUser(await buildAppUser(record, await loadRoles()))
+      setPendingEntry(null)
       router.push('/dashboard')
       return
     }
-    const existing = await getPendingUserById(fbUser.uid)
-    if (existing?.status === 'rejected') {
+
+    if (dest === 'rejected') {
       await signOut(getFirebaseAuth())
       throw new Error('تم رفض طلبك من قِبَل المدير')
     }
-    // ✅ FIX: new Google users always go to pending-approval
-    const entry = await upsertPendingUser({
+
+    // 'new' or still 'pending' — register / re-use pending entry
+    const newEntry = await upsertPendingUser({
       id: fbUser.uid,
       name: fbUser.displayName || fbUser.email || 'User',
       email: fbUser.email || '',
       photoURL: fbUser.photoURL || undefined,
     })
-    setPendingEntry(entry)
+    setPendingEntry(newEntry)
     router.push('/pending-approval')
   }, [router])
 
+  /* ─── Email/Password Sign-In ─────────────────────────────── */
   const loginWithEmail = useCallback(async (
     email: string,
     password: string,
   ): Promise<{ success: boolean; error?: string }> => {
     if (!isFirebaseConfigured()) return { success: false, error: 'Firebase غير مهيأ' }
+
     try {
       const result = await signInWithEmailAndPassword(getFirebaseAuth(), email, password)
       const fbUser = result.user
-      await logLoginAttempt({ userId: fbUser.uid, userEmail: fbUser.email || '', method: 'email', success: true, timestamp: new Date().toISOString() })
-      const record = await getUserById(fbUser.uid)
-      if (record && record.status === 'active') {
+
+      await logLoginAttempt({
+        userId: fbUser.uid, userEmail: fbUser.email || '',
+        method: 'email', success: true, timestamp: new Date().toISOString(),
+      })
+
+      const { dest, record, pendingEntry: entry } = await resolveFirebaseUserDestination(fbUser.uid)
+
+      if (dest === 'dashboard' && record) {
         setUser(await buildAppUser(record, await loadRoles()))
+        setPendingEntry(null)
         router.push('/dashboard')
         return { success: true }
       }
-      const entry = await getPendingUserById(fbUser.uid)
-      if (entry?.status === 'rejected') {
+
+      if (dest === 'rejected') {
         await signOut(getFirebaseAuth())
         return { success: false, error: 'تم رفض طلبك من قِبَل المدير' }
       }
-      if (entry) { setPendingEntry(entry); router.push('/pending-approval'); return { success: true } }
+
+      if (dest === 'pending' && entry) {
+        setPendingEntry(entry)
+        router.push('/pending-approval')
+        return { success: true }
+      }
+
+      // New user — create pending entry
       const newEntry = await upsertPendingUser({
         id: fbUser.uid,
         name: fbUser.displayName || fbUser.email || 'User',
@@ -225,6 +285,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [router])
 
+  /* ─── Email/Password Sign-Up ─────────────────────────────── */
   const signUpWithEmail = useCallback(async (
     name: string,
     email: string,
@@ -242,7 +303,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         photoURL: fbUser.photoURL || undefined,
       })
       setPendingEntry(entry)
-      await logLoginAttempt({ userId: fbUser.uid, userEmail: fbUser.email || '', method: 'email', success: true, timestamp: new Date().toISOString() })
+      await logLoginAttempt({
+        userId: fbUser.uid, userEmail: fbUser.email || '',
+        method: 'email', success: true, timestamp: new Date().toISOString(),
+      })
       router.push('/pending-approval')
       return { success: true }
     } catch (err: any) {
@@ -255,11 +319,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [router])
 
+  /* ─── Send Password Reset ─────────────────────────────────── */
   const sendPasswordReset = useCallback(async (email: string): Promise<void> => {
     if (!isFirebaseConfigured()) throw new Error('Firebase غير مهيأ')
     await sendPasswordResetEmail(getFirebaseAuth(), email)
   }, [])
 
+  /* ─── Employee Code Login ─────────────────────────────────── */
   const loginWithEmployeeCode = useCallback(async (
     employeeId: string,
     password: string,
@@ -273,7 +339,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (creds) {
         const storedPwd = creds.password
         if (storedPwd.startsWith('$2')) {
-          const { default: bcrypt } = await import("bcryptjs"); passwordValid = await bcrypt.compare(password, storedPwd)
+          const { default: bcrypt } = await import("bcryptjs")
+          passwordValid = await bcrypt.compare(password, storedPwd)
         } else {
           passwordValid = password === storedPwd
           if (passwordValid) await setEmployeeCredentials(dbUser.id, password, mustChange)
@@ -293,6 +360,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return { success: false, error: 'كود الموظف غير موجود' }
   }, [router])
 
+  /* ─── Change Password ─────────────────────────────────────── */
   const changePassword = useCallback(async (employeeId: string, newPassword: string) => {
     await setEmployeeCredentials(employeeId, newPassword, false)
     const dbUser = await import('@/lib/services/users.service').then((m) => m.getUserById(employeeId))
@@ -300,6 +368,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser((prev) => prev ? { ...prev, mustChangePassword: false } : prev)
   }, [])
 
+  /* ─── Logout ──────────────────────────────────────────────── */
   const logout = useCallback(() => {
     setUser(null)
     setPendingEntry(null)
@@ -307,7 +376,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     router.push('/login')
   }, [router])
 
-  const can = useCallback((permission: string): boolean => user?.permissions.includes(permission) ?? false, [user])
+  const can     = useCallback((permission: string): boolean => user?.permissions.includes(permission) ?? false, [user])
   const hasRole = useCallback((role: string): boolean => user?.roles.includes(role) ?? false, [user])
 
   return (
