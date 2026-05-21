@@ -31,8 +31,10 @@ import { DataTable, Column } from '@/components/ui/data-table'
 import { toast } from 'sonner'
 import { useLang } from '@/contexts/lang-context'
 import { useAuth } from '@/contexts/auth-context'
+import { isFirebaseConfigured, getFirestoreDb } from '@/lib/firebase'
+import { collection, onSnapshot, query, where, type QuerySnapshot, type QueryDocumentSnapshot } from 'firebase/firestore'
 import {
-  getPendingUsers, updatePendingUser,
+  updatePendingUser,
   type PendingUserRecord,
 } from '@/lib/services/pending-users.service'
 import {
@@ -158,25 +160,40 @@ export default function UsersPage() {
 
   const loadAll = React.useCallback(async () => {
     await seedDefaultRoles()
-    const [users, pending, rolesData, depts] = await Promise.all([
+    const [users, rolesData, depts] = await Promise.all([
       getAllUsers(),
-      getPendingUsers(),
       getAllRoles(),
       getAllDepartments(),
     ])
     setSystemUsers(users as DisplayUser[])
-    setPendingList(pending.filter((u) => u.status === 'pending'))
     setRoles(rolesData)
     setDepartments(depts)
     setLoadingUsers(false)
   }, [])
 
+  // Real-time listener for pending users — replaces polling interval
+  const pendingUnsubRef = React.useRef<(() => void) | null>(null)
+
   React.useEffect(() => {
     loadAll()
-    const interval = setInterval(() => {
-      getPendingUsers().then((all) => setPendingList(all.filter((u) => u.status === 'pending')))
-    }, 10000)
-    return () => clearInterval(interval)
+
+    if (!isFirebaseConfigured()) return
+
+    const q = query(
+      collection(getFirestoreDb(), 'pendingUsers'),
+      where('status', '==', 'pending'),
+    )
+    pendingUnsubRef.current = onSnapshot(
+      q,
+      (snap: QuerySnapshot) => {
+        const list: PendingUserRecord[] = snap.docs.map(
+          (d: QueryDocumentSnapshot) => ({ ...d.data(), id: d.id } as PendingUserRecord),
+        )
+        setPendingList(list)
+      },
+      () => {},
+    )
+    return () => { pendingUnsubRef.current?.() }
   }, [loadAll])
 
   const rejectUser = async (entry: PendingUserRecord) => {
