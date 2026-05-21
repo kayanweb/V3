@@ -27,11 +27,15 @@ export class FirestorePendingUserRepository implements IPendingUserRepository {
     const ref = doc(getFirestoreDb(), COL, user.id)
     const existing = await getDoc(ref)
     if (existing.exists()) {
-      return { id: existing.id, ...existing.data() } as PendingUserRecord
+      const existingData = existing.data() as PendingUserRecord
+      // Allow re-registration if previously rejected
+      if (existingData.status !== 'rejected') {
+        return { id: existing.id, ...existingData }
+      }
     }
     const entry: PendingUserRecord = {
       ...user,
-      requestedAt: user.requestedAt || new Date().toISOString(),
+      requestedAt: new Date().toISOString(),
       status: 'pending',
     }
     await setDoc(ref, entry)
