@@ -50,8 +50,8 @@ export function WhatsAppSendDialog({ open, onClose, defaultPhone = '', defaultNa
     if (open) { setPhone(defaultPhone); setText('') ; setFile(null); setMsgType('text') }
   }, [open, defaultPhone])
 
-  const WAPI = import.meta.env.VITE_WHATSAPP_API_URL || ''
-  const WTOKEN = import.meta.env.VITE_WHATSAPP_API_TOKEN || ''
+  const WAPI = import.meta.env.NEXT_PUBLIC_WHATSAPP_API_URL || ''
+  const WTOKEN = import.meta.env.NEXT_PUBLIC_WHATSAPP_API_TOKEN || ''
 
   const send = async (e: React.FormEvent) => {
     e.preventDefault()

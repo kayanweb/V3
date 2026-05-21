@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { useLang } from '@/contexts/lang-context'
 
-const API_BASE = import.meta.env.VITE_API_URL || ''
+const API_BASE = import.meta.env.NEXT_PUBLIC_API_URL || ''
 
 type SetupResult = Record<string, string>
 

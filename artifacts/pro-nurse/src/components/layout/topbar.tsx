@@ -1,8 +1,5 @@
-
-
 import * as React from 'react'
 import { useTheme } from 'next-themes'
-// Link imported via useLocation
 import {
   Bell,
   Moon,
@@ -33,9 +30,8 @@ import { Badge } from '@/components/ui/badge'
 import { useAuth } from '@/contexts/auth-context'
 import { useLang } from '@/contexts/lang-context'
 import { useLocation } from 'wouter'
-
-// استيراد آمن من ملف الخدمة المشترك لمنع أخطاء الملفات المفقودة
-import { getAllUsers } from '@/lib/services/users.service'
+import { isFirebaseConfigured, getFirestoreDb } from '@/lib/firebase'
+import { collection, onSnapshot, query, where } from 'firebase/firestore'
 
 export function Topbar() {
   const { theme, setTheme } = useTheme()
@@ -44,24 +40,17 @@ export function Topbar() {
   const [, navigate] = useLocation()
   const [pendingCount, setPendingCount] = React.useState(0)
 
+  // Real-time pending count from the correct pendingUsers collection
   React.useEffect(() => {
-    const refresh = async () => {
-      if (can('users.approve')) {
-        try {
-          // جلب المستخدمين المعلقين من الخدمة المتاحة بأمان
-          const list = await getAllUsers()
-          if (Array.isArray(list)) {
-            // حل مشكلة نوع المتغير u صراحة بتعريفه كـ (u: any)
-            setPendingCount(list.filter((u: any) => u.status === 'pending' || u.status === 'Pending').length)
-          }
-        } catch (error) {
-          console.error("Error fetching pending users in topbar:", error)
-        }
-      }
-    }
-    refresh()
-    const interval = setInterval(refresh, 8000)
-    return () => clearInterval(interval)
+    if (!can('users.approve') && !can('users.edit')) return
+    if (!isFirebaseConfigured()) return
+
+    const q = query(
+      collection(getFirestoreDb(), 'pendingUsers'),
+      where('status', '==', 'pending'),
+    )
+    const unsub = onSnapshot(q, (snap) => setPendingCount(snap.size), () => {})
+    return () => unsub()
   }, [can])
 
   const [currentTime, setCurrentTime] = React.useState<string>('')
@@ -110,21 +99,24 @@ export function Topbar() {
       <Separator orientation="vertical" className="mx-2 h-4 hidden lg:block" />
 
       {/* Pending approval badge — admin/head_nurse only */}
-      {can('users.approve') && pendingCount > 0 && (
+      {(can('users.approve') || can('users.edit')) && pendingCount > 0 && (
         <Button
-          variant="ghost"
+          variant="outline"
           size="sm"
-          className="relative gap-1.5 text-amber-600 hover:text-amber-700 hover:bg-amber-50 dark:hover:bg-amber-950 px-2"
-          onClick={() => navigate('/admin/users')}
+          className="relative gap-1.5 border-amber-400 text-amber-700 hover:bg-amber-50 dark:border-amber-600 dark:text-amber-400 dark:hover:bg-amber-950 px-2"
+          onClick={() => navigate('/admin/pending-users')}
           title={lang === 'ar' ? 'طلبات انتظار الموافقة' : 'Pending approval requests'}
         >
-          <UserCheck className="h-4 w-4" />
-          <span className="text-xs font-bold hidden sm:inline">
-            {lang === 'ar' ? `${pendingCount} طلب` : `${pendingCount} request${pendingCount > 1 ? 's' : ''}`}
+          <Shield className="h-4 w-4" />
+          <span className="hidden sm:inline text-xs font-medium">
+            {lang === 'ar' ? `${pendingCount} طلب معلّق` : `${pendingCount} pending`}
           </span>
-          <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-amber-500 text-white text-[10px] font-bold sm:hidden">
+          <Badge
+            variant="destructive"
+            className="h-5 min-w-5 rounded-full p-0 text-xs flex items-center justify-center sm:hidden"
+          >
             {pendingCount}
-          </span>
+          </Badge>
         </Button>
       )}
 
@@ -164,22 +156,14 @@ export function Topbar() {
             </span>
           </DropdownMenuItem>
           <DropdownMenuSeparator />
-          <DropdownMenuItem className="text-center text-primary">
+          <DropdownMenuItem
+            className="text-center text-primary justify-center"
+            onClick={() => navigate('/notifications')}
+          >
             {lang === 'ar' ? 'عرض جميع الإشعارات' : 'View All Notifications'}
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
-
-      {/* Pending Approval Badge */}
-      {pendingCount > 0 && (
-        <a href="/admin/users">
-          <Button variant="outline" size="sm" className="relative gap-2 border-amber-400 text-amber-700 hover:bg-amber-50 dark:border-amber-600 dark:text-amber-400">
-            <Shield className="h-4 w-4" />
-            <span className="hidden sm:inline text-xs font-medium">{lang === 'ar' ? 'طلبات معلّقة' : 'Pending'}</span>
-            <Badge variant="destructive" className="h-5 min-w-5 rounded-full p-0 text-xs flex items-center justify-center">{pendingCount}</Badge>
-          </Button>
-        </a>
-      )}
 
       {/* Language Toggle */}
       <Button
@@ -213,17 +197,12 @@ export function Topbar() {
           <Button variant="ghost" className="gap-2 px-2">
             <Avatar className="h-8 w-8">
               <AvatarFallback className="bg-primary/10 text-primary text-sm">
-                {user?.nameAr?.charAt(0) || 'م'}
+                {user?.nameAr?.charAt(0) || user?.name?.charAt(0) || 'م'}
               </AvatarFallback>
             </Avatar>
             <div className="hidden md:flex flex-col items-start text-sm">
-              <span className="font-medium">{user?.nameAr}</span>
-              <span className="text-xs text-muted-foreground">
-                {user?.role === 'admin' && (lang === 'ar' ? 'مدير النظام' : 'System Admin')}
-                {user?.role === 'head_nurse' && (lang === 'ar' ? 'رئيس التمريض' : 'Head Nurse')}
-                {user?.role === 'supervisor' && (lang === 'ar' ? 'مشرف' : 'Supervisor')}
-                {user?.role === 'staff' && (lang === 'ar' ? 'موظف' : 'Staff')}
-              </span>
+              <span className="font-medium">{user?.nameAr || user?.name}</span>
+              <span className="text-xs text-muted-foreground">{user?.role}</span>
             </div>
             <ChevronDown className="h-4 w-4 text-muted-foreground" />
           </Button>
@@ -235,7 +214,7 @@ export function Topbar() {
             <User className="ml-2 h-4 w-4" />
             {lang === 'ar' ? 'الملف الشخصي' : 'Profile'}
           </DropdownMenuItem>
-          <DropdownMenuItem>
+          <DropdownMenuItem onClick={() => navigate('/preferences')}>
             <Settings className="ml-2 h-4 w-4" />
             {lang === 'ar' ? 'الإعدادات' : 'Settings'}
           </DropdownMenuItem>

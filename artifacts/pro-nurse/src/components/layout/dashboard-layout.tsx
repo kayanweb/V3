@@ -1,7 +1,6 @@
-
-
 import { useEffect } from 'react'
 import { useLocation } from 'wouter'
+import { Loader2 } from 'lucide-react'
 import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar'
 import { AppSidebar } from '@/components/layout/app-sidebar'
 import { Topbar } from '@/components/layout/topbar'
@@ -12,14 +11,26 @@ interface DashboardLayoutProps {
 }
 
 export function DashboardLayout({ children }: DashboardLayoutProps) {
-  const { isAuthenticated } = useAuth()
+  const { isAuthenticated, isLoading } = useAuth()
   const [, navigate] = useLocation()
 
   useEffect(() => {
-    if (!isAuthenticated) {
+    if (!isLoading && !isAuthenticated) {
       navigate('/login')
     }
-  }, [isAuthenticated, navigate])
+  }, [isAuthenticated, isLoading, navigate])
+
+  // Show centered spinner while Firebase is resolving auth state
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="flex flex-col items-center gap-3">
+          <Loader2 className="h-8 w-8 animate-spin text-teal-600" />
+          <p className="text-sm text-muted-foreground">جاري التحقق من الجلسة...</p>
+        </div>
+      </div>
+    )
+  }
 
   if (!isAuthenticated) return null
 
