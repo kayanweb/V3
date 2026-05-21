@@ -18,7 +18,12 @@ import {
 } from '@/components/ui/select'
 import { StatusBadge } from '@/components/ui/status-badge'
 import { DataTable, Column } from '@/components/ui/data-table'
-import { getReports, getReportsByFilters, type ReportRecord } from '@/lib/services/reports.service'
+import { getAllReports, getReportsByFilters, type ReportRecord } from '@/lib/services/reports.service'
+
+// تعريف الأنواع المحلية
+type ReportShift = 'morning' | 'evening' | 'night'
+type ReportStatus = 'draft' | 'submitted' | 'approved' | 'rejected'
+
 export default function ReportsArchivePage() {
   const [allReports, setAllReports] = useState<ReportRecord[]>([])
   const [filteredReports, setFilteredReports] = useState<ReportRecord[]>([])
@@ -32,7 +37,7 @@ export default function ReportsArchivePage() {
     try {
       const data = await getAllReports()
       setAllReports(data)
-      setFilteredReports(data) // Initialize filtered with all reports
+      setFilteredReports(data)
     } catch (error) {
       toast.error('حدث خطأ في تحميل التقارير من السحابة')
       console.error(error)
@@ -50,12 +55,12 @@ export default function ReportsArchivePage() {
       try {
         if (dateFilter || shiftFilter !== 'all' || statusFilter !== 'all') {
           setIsLoading(true)
-        const filtered = await getReportsByFilters(
-          dateFilter || undefined,
-          shiftFilter === 'all' ? undefined : (shiftFilter as ReportShift),
-          statusFilter === 'all' ? undefined : (statusFilter as ReportStatus)
-        )
-        setFilteredReports(filtered)
+          const filtered = await getReportsByFilters(
+            dateFilter || undefined,
+            shiftFilter === 'all' ? undefined : (shiftFilter as ReportShift),
+            statusFilter === 'all' ? undefined : (statusFilter as ReportStatus)
+          )
+          setFilteredReports(filtered)
         } else {
           setFilteredReports(allReports)
         }
@@ -67,7 +72,7 @@ export default function ReportsArchivePage() {
       }
     }
     applyFilters()
-  }, [dateFilter, shiftFilter, statusFilter])
+  }, [dateFilter, shiftFilter, statusFilter, allReports])
 
   const columns: Column<ReportRecord>[] = [
     {
@@ -185,8 +190,6 @@ export default function ReportsArchivePage() {
                   <SelectItem value="approved">معتمد</SelectItem>
                 </SelectContent>
               </Select>
-            </div>
-            <div className="flex items-end">
             </div>
             <div className="flex items-end">
               <Button
