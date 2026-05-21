@@ -9,7 +9,52 @@
  * Components and Services NEVER import from Firebase directly —
  * they always depend on these interfaces.
  */
+// ─── Dashboard & UI Types ────────────────────────────────────
 
+export interface Alert {
+  id: string;
+  title: string;
+  description: string;
+  type: 'info' | 'warning' | 'destructive' | 'success';
+  createdAt: string;
+  read?: boolean;
+}
+
+export interface Equipment {
+  id: string;
+  name: string;
+  nameAr: string;
+  serialNumber: string;
+  category?: string;
+  status: 'available' | 'in-use' | 'maintenance' | 'broken';
+  department: string;
+  location: string;
+  lastMaintenance?: string;
+  nextMaintenance?: string;
+  purchaseDate?: string;
+  warrantyExpiry?: string;
+  assignedTo?: string;
+  notes?: string;
+}
+
+export interface Handover {
+  id: string;
+  patientId: string;
+  patientName: string;
+  mrn: string;
+  department: string;
+  fromNurse: string;
+  toNurse: string;
+  shift: 'morning' | 'evening' | 'night';
+  date: string;
+  situation: string;
+  background: string;
+  assessment: string;
+  recommendation: string;
+  criticalAlerts: string[];
+  pendingTasks: string[];
+  status: 'pending' | 'acknowledged' | 'completed';
+}
 // ─── Shared Domain Types ────────────────────────────────────
 
 export type PendingStatus = 'pending' | 'approved' | 'rejected'
