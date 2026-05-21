@@ -26,6 +26,15 @@ import type { UserRecord } from '@/lib/repositories'
 import type { RoleRecord } from '@/lib/services/roles.service'
 import type { PendingUserRecord } from '@/lib/services/pending-users.service'
 
+// ─── Helper function for safe date conversion ────────────────
+function safeToDate(value: any): Date {
+  if (!value) return new Date()
+  if (typeof value.toDate === 'function') return value.toDate()
+  if (typeof value === 'string') return new Date(value)
+  if (typeof value === 'number') return new Date(value)
+  return new Date()
+}
+
 // ─── Legacy role type for backward-compat with types/index.ts ─
 export type UserRole = 'admin' | 'head_nurse' | 'supervisor' | 'staff'
 
