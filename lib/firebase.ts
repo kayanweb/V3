@@ -1,12 +1,22 @@
 'use client'
 
 import { initializeApp, getApps, FirebaseApp } from 'firebase/app'
-import { getFirestore, Firestore } from 'firebase/firestore'
-import { getAuth, Auth } from 'firebase/auth'
+import {
+  getFirestore,
+  initializeFirestore,
+  persistentLocalCache,
+  persistentMultipleTabManager,
+  Firestore,
+} from 'firebase/firestore'
+import {
+  getAuth,
+  setPersistence,
+  browserLocalPersistence,
+  Auth,
+} from 'firebase/auth'
 import { getDatabase, Database } from 'firebase/database'
 import { getStorage, FirebaseStorage } from 'firebase/storage'
 
-// Firebase configuration - Replace with your own Firebase config
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || '',
   authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN || '',
@@ -17,7 +27,6 @@ const firebaseConfig = {
   databaseURL: process.env.NEXT_PUBLIC_FIREBASE_DATABASE_URL || '',
 }
 
-// Initialize Firebase
 let app: FirebaseApp | undefined
 let db: Firestore | undefined
 let auth: Auth | undefined
@@ -33,14 +42,30 @@ function getFirebaseApp(): FirebaseApp {
 
 export function getFirestoreDb(): Firestore {
   if (!db) {
-    db = getFirestore(getFirebaseApp())
+    const appInstance = getFirebaseApp()
+    if (typeof window !== 'undefined') {
+      try {
+        db = initializeFirestore(appInstance, {
+          localCache: persistentLocalCache({
+            tabManager: persistentMultipleTabManager(),
+          }),
+        })
+      } catch {
+        db = getFirestore(appInstance)
+      }
+    } else {
+      db = getFirestore(appInstance)
+    }
   }
-  return db
+  return db!
 }
 
 export function getFirebaseAuth(): Auth {
   if (!auth) {
     auth = getAuth(getFirebaseApp())
+    if (typeof window !== 'undefined') {
+      setPersistence(auth, browserLocalPersistence).catch(() => {})
+    }
   }
   return auth
 }
@@ -61,7 +86,6 @@ export function getFirebaseStorage(): FirebaseStorage {
 
 export { app, db, auth, realtimeDb, storage }
 
-/** Returns true only when all required env vars are present */
 export function isFirebaseConfigured(): boolean {
   return !!(
     process.env.NEXT_PUBLIC_FIREBASE_API_KEY &&
