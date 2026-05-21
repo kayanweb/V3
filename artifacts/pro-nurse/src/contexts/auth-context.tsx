@@ -9,6 +9,7 @@ import {
   onAuthStateChanged,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
+  updatePassword,
   sendPasswordResetEmail,
   sendEmailVerification,
   User as FirebaseUser,
@@ -378,6 +379,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     employeeId: string,
     password: string,
   ): Promise<{ success: boolean; mustChangePassword?: boolean; error?: string }> => {
+    if (!isFirebaseConfigured()) return { success: false, error: 'Firebase غير مهيأ — أضف بيانات Firebase في الإعدادات' }
+
     const roles = await loadRoles()
     const dbUser = await getUserByEmployeeCode(employeeId)
     if (!dbUser) return { success: false, error: 'كود الموظف غير موجود' }
@@ -397,7 +400,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (passwordValid) await setEmployeeCredentials(dbUser.id, password, mustChange)
       }
     } else {
+      // No credentials stored — default password = employee code
       passwordValid = password === employeeId.toUpperCase()
+      if (passwordValid) await setEmployeeCredentials(dbUser.id, employeeId.toUpperCase(), true)
     }
 
     if (!passwordValid) {
@@ -405,7 +410,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return { success: false, error: 'كلمة المرور غير صحيحة' }
     }
 
-    setUser({ ...await buildAppUser(dbUser, roles), mustChangePassword: mustChange })
+    // Sign in to Firebase Auth to create persistent session (so page refresh doesn't log out)
+    activeFlowRef.current = true
+    try {
+      await signInWithEmailAndPassword(getFirebaseAuth(), dbUser.email, password)
+    } catch {
+      // Firebase Auth sign-in failed (e.g. password mismatch with Auth) — continue without Auth session
+      activeFlowRef.current = false
+    }
+
+    const appUser = { ...await buildAppUser(dbUser, roles), mustChangePassword: mustChange }
+    setUser(appUser)
     await logLoginAttempt({ userId: dbUser.id, userEmail: dbUser.email, method: 'employee_code', success: true, timestamp: new Date().toISOString() })
     if (mustChange) navigate('/change-password')
     return { success: true, mustChangePassword: mustChange }
@@ -415,6 +430,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const changePassword = useCallback(async (employeeId: string, newPassword: string) => {
     await setEmployeeCredentials(employeeId, newPassword, false)
     await updateUserProfile(employeeId, { mustChangePassword: false })
+    // Update Firebase Auth password so session stays valid
+    const fbUser = getFirebaseAuth().currentUser
+    if (fbUser) {
+      try { await updatePassword(fbUser, newPassword) } catch {}
+    }
     setUser((prev) => prev ? { ...prev, mustChangePassword: false } : prev)
   }, [])
 
