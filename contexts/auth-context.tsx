@@ -7,6 +7,10 @@ import {
   signInWithPopup,
   signOut,
   onAuthStateChanged,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  sendPasswordResetEmail,
+  sendEmailVerification,
   User as FirebaseUser,
 } from 'firebase/auth'
 import { isFirebaseConfigured, getFirebaseAuth } from '@/lib/firebase'
@@ -26,7 +30,6 @@ import type { UserRecord } from '@/lib/repositories'
 import type { RoleRecord } from '@/lib/services/roles.service'
 import type { PendingUserRecord } from '@/lib/services/pending-users.service'
 
-// ─── Helper function for safe date conversion ────────────────
 function safeToDate(value: any): Date {
   if (!value) return new Date()
   if (typeof value.toDate === 'function') return value.toDate()
@@ -35,20 +38,18 @@ function safeToDate(value: any): Date {
   return new Date()
 }
 
-// ─── Legacy role type for backward-compat with types/index.ts ─
-export type UserRole = 'admin' | 'head_nurse' | 'supervisor' | 'staff'
+export type UserRole = 'admin' | 'head_nurse' | 'supervisor' | 'staff' | 'it_admin'
 
-// ─── App user shape (kept compatible with types/index.ts User) ─
 export interface AppUser {
   id: string
   name: string
   nameAr: string
   email: string
-  role: string          // primary display role
-  roles: string[]       // all role IDs
+  role: string
+  roles: string[]
   department: string
   departments: string[]
-  permissions: string[] // resolved flat permission keys
+  permissions: string[]
   mustChangePassword: boolean
   employeeCode?: string
   photoURL?: string
@@ -65,6 +66,16 @@ interface AuthContextType {
     employeeId: string,
     password: string,
   ) => Promise<{ success: boolean; mustChangePassword?: boolean; error?: string }>
+  loginWithEmail: (
+    email: string,
+    password: string,
+  ) => Promise<{ success: boolean; error?: string }>
+  signUpWithEmail: (
+    name: string,
+    email: string,
+    password: string,
+  ) => Promise<{ success: boolean; error?: string }>
+  sendPasswordReset: (email: string) => Promise<void>
   changePassword: (employeeId: string, newPassword: string) => Promise<void>
   logout: () => void
   can: (permission: string) => boolean
@@ -73,14 +84,10 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | null>(null)
 
-
-// ─── Helpers ─────────────────────────────────────────────────
-
 async function buildAppUser(record: UserRecord, allRoles: RoleRecord[]): Promise<AppUser> {
   const userRoles = allRoles.filter((r) => record.roles.includes(r.id) && r.isActive)
   const permissions = resolveUserPermissions(userRoles, record.customPermissions)
   const primaryRole = userRoles[0]
-
   return {
     id: record.id,
     name: record.name,
@@ -97,7 +104,6 @@ async function buildAppUser(record: UserRecord, allRoles: RoleRecord[]): Promise
   }
 }
 
-// ─────────────────────────────────────────────────────────────
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser]                = useState<AppUser | null>(null)
   const [pendingEntry, setPendingEntry] = useState<PendingUserRecord | null>(null)
@@ -113,35 +119,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return rolesCache.current
   }
 
-  /* ── Restore session via Firebase Auth ── */
   useEffect(() => {
-    if (!isFirebaseConfigured()) {
-      setIsLoading(false)
-      return
-    }
-
+    if (!isFirebaseConfigured()) { setIsLoading(false); return }
     const unsubscribe = onAuthStateChanged(getFirebaseAuth(), async (fbUser: FirebaseUser | null) => {
       try {
         if (fbUser) {
           const record = await getUserById(fbUser.uid)
           if (record && record.status === 'active') {
             const roles = await loadRoles()
-            const appUser = await buildAppUser(record, roles)
-            setUser(appUser)
+            setUser(await buildAppUser(record, roles))
             setPendingEntry(null)
-
-            if (record.mustChangePassword) {
-              router.push('/change-password')
-            }
+            if (record.mustChangePassword) router.push('/change-password')
           } else {
-            // Check pending
             const entry = await getPendingUserById(fbUser.uid)
             if (entry?.status === 'approved') {
               const roles = await loadRoles()
               const updatedRecord = await getUserById(fbUser.uid)
-              if (updatedRecord) {
-                setUser(await buildAppUser(updatedRecord, roles))
-              }
+              if (updatedRecord) setUser(await buildAppUser(updatedRecord, roles))
             } else if (entry?.status === 'rejected') {
               await signOut(getFirebaseAuth())
             } else if (entry) {
@@ -156,50 +150,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setIsLoading(false)
       }
     })
-
     return () => unsubscribe()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  const login = useCallback((userData: AppUser) => {
-    setUser(userData)
-  }, [])
+  const login = useCallback((userData: AppUser) => { setUser(userData) }, [])
 
-  /* ─── Google Sign-In ── */
   const loginWithGoogle = useCallback(async () => {
-    if (!isFirebaseConfigured()) {
-      throw new Error('Firebase is not configured. Please set up environment variables.')
-    }
-
+    if (!isFirebaseConfigured()) throw new Error('Firebase is not configured.')
     const provider = new GoogleAuthProvider()
     const result   = await signInWithPopup(getFirebaseAuth(), provider)
     const fbUser   = result.user
-
-    await logLoginAttempt({
-      userId: fbUser.uid,
-      userEmail: fbUser.email || '',
-      method: 'google',
-      success: true,
-      timestamp: new Date().toISOString(),
-    })
-
-    // Already an approved user?
+    await logLoginAttempt({ userId: fbUser.uid, userEmail: fbUser.email || '', method: 'google', success: true, timestamp: new Date().toISOString() })
     const record = await getUserById(fbUser.uid)
     if (record && record.status === 'active') {
-      const roles = await loadRoles()
-      setUser(await buildAppUser(record, roles))
+      setUser(await buildAppUser(record, await loadRoles()))
       router.push('/dashboard')
       return
     }
-
-    // Check pending
     const existing = await getPendingUserById(fbUser.uid)
     if (existing?.status === 'rejected') {
       await signOut(getFirebaseAuth())
       throw new Error('تم رفض طلبك من قِبَل المدير')
     }
-
-    // Register as pending
+    // ✅ FIX: new Google users always go to pending-approval
     const entry = await upsertPendingUser({
       id: fbUser.uid,
       name: fbUser.displayName || fbUser.email || 'User',
@@ -210,69 +184,122 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     router.push('/pending-approval')
   }, [router])
 
-  /* ─── Employee Code Login ── */
+  const loginWithEmail = useCallback(async (
+    email: string,
+    password: string,
+  ): Promise<{ success: boolean; error?: string }> => {
+    if (!isFirebaseConfigured()) return { success: false, error: 'Firebase غير مهيأ' }
+    try {
+      const result = await signInWithEmailAndPassword(getFirebaseAuth(), email, password)
+      const fbUser = result.user
+      await logLoginAttempt({ userId: fbUser.uid, userEmail: fbUser.email || '', method: 'email', success: true, timestamp: new Date().toISOString() })
+      const record = await getUserById(fbUser.uid)
+      if (record && record.status === 'active') {
+        setUser(await buildAppUser(record, await loadRoles()))
+        router.push('/dashboard')
+        return { success: true }
+      }
+      const entry = await getPendingUserById(fbUser.uid)
+      if (entry?.status === 'rejected') {
+        await signOut(getFirebaseAuth())
+        return { success: false, error: 'تم رفض طلبك من قِبَل المدير' }
+      }
+      if (entry) { setPendingEntry(entry); router.push('/pending-approval'); return { success: true } }
+      const newEntry = await upsertPendingUser({
+        id: fbUser.uid,
+        name: fbUser.displayName || fbUser.email || 'User',
+        email: fbUser.email || email,
+        photoURL: fbUser.photoURL || undefined,
+      })
+      setPendingEntry(newEntry)
+      router.push('/pending-approval')
+      return { success: true }
+    } catch (err: any) {
+      const code = err?.code || ''
+      let msg = 'فشل تسجيل الدخول'
+      if (code === 'auth/user-not-found' || code === 'auth/invalid-credential') msg = 'البريد الإلكتروني أو كلمة المرور غير صحيحة'
+      else if (code === 'auth/wrong-password') msg = 'كلمة المرور غير صحيحة'
+      else if (code === 'auth/too-many-requests') msg = 'محاولات كثيرة — حاول لاحقاً'
+      else if (code === 'auth/user-disabled') msg = 'تم تعطيل هذا الحساب'
+      return { success: false, error: msg }
+    }
+  }, [router])
+
+  const signUpWithEmail = useCallback(async (
+    name: string,
+    email: string,
+    password: string,
+  ): Promise<{ success: boolean; error?: string }> => {
+    if (!isFirebaseConfigured()) return { success: false, error: 'Firebase غير مهيأ' }
+    try {
+      const result = await createUserWithEmailAndPassword(getFirebaseAuth(), email, password)
+      const fbUser = result.user
+      try { await sendEmailVerification(fbUser) } catch {}
+      const entry = await upsertPendingUser({
+        id: fbUser.uid,
+        name: name || email,
+        email: fbUser.email || email,
+        photoURL: fbUser.photoURL || undefined,
+      })
+      setPendingEntry(entry)
+      await logLoginAttempt({ userId: fbUser.uid, userEmail: fbUser.email || '', method: 'email', success: true, timestamp: new Date().toISOString() })
+      router.push('/pending-approval')
+      return { success: true }
+    } catch (err: any) {
+      const code = err?.code || ''
+      let msg = 'فشل إنشاء الحساب'
+      if (code === 'auth/email-already-in-use') msg = 'البريد الإلكتروني مستخدم بالفعل'
+      else if (code === 'auth/invalid-email') msg = 'بريد إلكتروني غير صالح'
+      else if (code === 'auth/weak-password') msg = 'كلمة المرور ضعيفة — 6 أحرف على الأقل'
+      return { success: false, error: msg }
+    }
+  }, [router])
+
+  const sendPasswordReset = useCallback(async (email: string): Promise<void> => {
+    if (!isFirebaseConfigured()) throw new Error('Firebase غير مهيأ')
+    await sendPasswordResetEmail(getFirebaseAuth(), email)
+  }, [])
+
   const loginWithEmployeeCode = useCallback(async (
     employeeId: string,
     password: string,
   ): Promise<{ success: boolean; mustChangePassword?: boolean; error?: string }> => {
     const roles = await loadRoles()
-
-    // Try Firestore user first
-    const dbUser = await import('@/lib/services/users.service')
-      .then((m) => m.getUserByEmployeeCode(employeeId))
-
+    const dbUser = await import('@/lib/services/users.service').then((m) => m.getUserByEmployeeCode(employeeId))
     if (dbUser) {
       const creds = await getEmployeeCredentials(dbUser.id)
       let passwordValid = false
       let mustChange = creds?.mustChange ?? true
-
       if (creds) {
         const storedPwd = creds.password
-        // Check if stored password is a bcrypt hash (starts with $2)
         if (storedPwd.startsWith('$2')) {
           const { default: bcrypt } = await import("bcryptjs"); passwordValid = await bcrypt.compare(password, storedPwd)
         } else {
-          // Legacy plain-text password - compare directly and rehash on success
           passwordValid = password === storedPwd
-          if (passwordValid) {
-            // Migrate to hashed password
-            await setEmployeeCredentials(dbUser.id, password, mustChange)
-          }
+          if (passwordValid) await setEmployeeCredentials(dbUser.id, password, mustChange)
         }
       } else {
-        // No credentials record - default password is employee code
         passwordValid = password === employeeId.toUpperCase()
       }
-
       if (!passwordValid) {
         await logLoginAttempt({ userId: dbUser.id, userEmail: dbUser.email, method: 'employee_code', success: false, timestamp: new Date().toISOString() })
         return { success: false, error: 'كلمة المرور غير صحيحة' }
       }
-
-      const appUser = await buildAppUser(dbUser, roles)
-      setUser({ ...appUser, mustChangePassword: mustChange })
+      setUser({ ...await buildAppUser(dbUser, roles), mustChangePassword: mustChange })
       await logLoginAttempt({ userId: dbUser.id, userEmail: dbUser.email, method: 'employee_code', success: true, timestamp: new Date().toISOString() })
       if (mustChange) router.push('/change-password')
       return { success: true, mustChangePassword: mustChange }
     }
-
     return { success: false, error: 'كود الموظف غير موجود' }
   }, [router])
 
-  /* ─── Change Password ── */
   const changePassword = useCallback(async (employeeId: string, newPassword: string) => {
     await setEmployeeCredentials(employeeId, newPassword, false)
-    // Update Firestore user
-    const dbUser = await import('@/lib/services/users.service')
-      .then((m) => m.getUserById(employeeId))
-    if (dbUser) {
-      await import('@/lib/services/users.service')
-        .then((m) => m.updateUserProfile(employeeId, { mustChangePassword: false }))
-    }
+    const dbUser = await import('@/lib/services/users.service').then((m) => m.getUserById(employeeId))
+    if (dbUser) await import('@/lib/services/users.service').then((m) => m.updateUserProfile(employeeId, { mustChangePassword: false }))
     setUser((prev) => prev ? { ...prev, mustChangePassword: false } : prev)
   }, [])
 
-  /* ─── Logout ── */
   const logout = useCallback(() => {
     setUser(null)
     setPendingEntry(null)
@@ -280,19 +307,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     router.push('/login')
   }, [router])
 
-  /* ─── Permission helpers ── */
-  const can = useCallback((permission: string): boolean => {
-    return user?.permissions.includes(permission) ?? false
-  }, [user])
-
-  const hasRole = useCallback((role: string): boolean => {
-    return user?.roles.includes(role) ?? false
-  }, [user])
+  const can = useCallback((permission: string): boolean => user?.permissions.includes(permission) ?? false, [user])
+  const hasRole = useCallback((role: string): boolean => user?.roles.includes(role) ?? false, [user])
 
   return (
     <AuthContext.Provider value={{
       user, pendingEntry, isAuthenticated: !!user, isLoading,
-      login, loginWithGoogle, loginWithEmployeeCode, changePassword, logout,
+      login, loginWithGoogle, loginWithEmployeeCode, loginWithEmail,
+      signUpWithEmail, sendPasswordReset, changePassword, logout,
       can, hasRole,
     }}>
       {children}
@@ -311,7 +333,6 @@ export function useRole(): string | null {
   return user?.role || null
 }
 
-// ─── Backward-compat wrapper ─────────────────────────────────
 export function RequirePermission({
   permission, children, fallback = null,
 }: {
@@ -324,7 +345,6 @@ export function RequirePermission({
   return <>{children}</>
 }
 
-// ─── Demo employees for WhatsApp send ─────────────────────────
 export const DEMO_EMPLOYEES = [
   { id: '1', nameAr: 'أحمد محمد', employeeCode: 'EMP001' },
   { id: '2', nameAr: 'سارة علي', employeeCode: 'EMP002' },
