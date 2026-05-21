@@ -22,7 +22,8 @@ function toISO(val: unknown): string | undefined {
 
 function mapDoc(id: string, data: Record<string, unknown>): UserRecord {
   return {
-    ...(data as UserRecord),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ...(data as any),
     id,
     createdAt: toISO(data.createdAt),
     updatedAt: toISO(data.updatedAt),
