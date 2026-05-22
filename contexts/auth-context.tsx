@@ -1,0 +1,486 @@
+'use client'
+
+import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react'
+import { useRouter } from 'next/navigation'
+import {
+  GoogleAuthProvider,
+  signInWithPopup,
+  signOut,
+  onAuthStateChanged,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  sendPasswordResetEmail,
+  sendEmailVerification,
+  User as FirebaseUser,
+} from 'firebase/auth'
+import { isFirebaseConfigured, getFirebaseAuth } from '@/lib/firebase'
+import {
+  getUserById,
+  getEmployeeCredentials,
+  setEmployeeCredentials,
+  updateUserProfile,
+  getUserByEmployeeCode,
+} from '@/lib/services/users.service'
+import {
+  upsertPendingUser,
+  getPendingUserById,
+} from '@/lib/services/pending-users.service'
+import { getAllRoles, seedDefaultRoles, resolveUserPermissions } from '@/lib/services/roles.service'
+import { logLoginAttempt } from '@/lib/services/auth.service'
+import type { UserRecord } from '@/lib/repositories'
+import type { RoleRecord } from '@/lib/services/roles.service'
+import type { PendingUserRecord } from '@/lib/services/pending-users.service'
+
+export type UserRole = 'admin' | 'head_nurse' | 'supervisor' | 'staff' | 'it_admin'
+
+export interface AppUser {
+  id: string
+  name: string
+  nameAr: string
+  email: string
+  role: string
+  roles: string[]
+  department: string
+  departments: string[]
+  permissions: string[]
+  mustChangePassword: boolean
+  employeeCode?: string
+  photoURL?: string
+}
+
+interface AuthContextType {
+  user: AppUser | null
+  pendingEntry: PendingUserRecord | null
+  isAuthenticated: boolean
+  isLoading: boolean
+  login: (user: AppUser) => void
+  loginWithGoogle: () => Promise<void>
+  loginWithEmployeeCode: (
+    employeeId: string,
+    password: string,
+  ) => Promise<{ success: boolean; mustChangePassword?: boolean; error?: string }>
+  loginWithEmail: (
+    email: string,
+    password: string,
+  ) => Promise<{ success: boolean; error?: string }>
+  signUpWithEmail: (
+    name: string,
+    email: string,
+    password: string,
+  ) => Promise<{ success: boolean; error?: string }>
+  sendPasswordReset: (email: string) => Promise<void>
+  changePassword: (employeeId: string, newPassword: string) => Promise<void>
+  logout: () => void
+  can: (permission: string) => boolean
+  hasRole: (role: string) => boolean
+}
+
+const AuthContext = createContext<AuthContextType | null>(null)
+
+// ─── Safely convert a Firestore Timestamp, Date, or ISO string ─
+export function safeToDate(val: unknown): string | undefined {
+  if (!val) return undefined
+  if (typeof val === 'string') return val
+  if (val instanceof Date) return val.toISOString()
+  if (typeof (val as any).toDate === 'function') return (val as any).toDate().toISOString()
+  return undefined
+}
+
+async function buildAppUser(record: UserRecord, allRoles: RoleRecord[]): Promise<AppUser> {
+  const userRoles = allRoles.filter((r) => record.roles.includes(r.id) && r.isActive)
+  const permissions = resolveUserPermissions(userRoles, record.customPermissions)
+  const primaryRole = userRoles[0]
+  return {
+    id: record.id,
+    name: record.name,
+    nameAr: record.nameAr,
+    email: record.email,
+    role: primaryRole?.nameAr ?? record.roles[0] ?? 'staff',
+    roles: record.roles,
+    department: record.departments[0] ?? '',
+    departments: record.departments,
+    permissions,
+    mustChangePassword: record.mustChangePassword,
+    employeeCode: record.employeeCode,
+    photoURL: record.photoURL,
+  }
+}
+
+// ─── Resolve destination for a Firebase Auth user ─────────────
+// Returns: 'dashboard' | 'pending' | 'rejected' | 'suspended' | 'new'
+async function resolveFirebaseUserDestination(uid: string): Promise<{
+  dest: 'dashboard' | 'pending' | 'rejected' | 'suspended' | 'new'
+  record?: UserRecord
+  pendingEntry?: PendingUserRecord
+}> {
+  const record = await getUserById(uid)
+  if (record) {
+    if (record.status === 'active') return { dest: 'dashboard', record }
+    if (record.status === 'suspended' || record.status === 'inactive') return { dest: 'suspended', record }
+  }
+
+  const entry = await getPendingUserById(uid)
+  if (!entry) return { dest: 'new' }
+
+  if (entry.status === 'rejected') return { dest: 'rejected', pendingEntry: entry }
+
+  if (entry.status === 'approved') {
+    const updatedRecord = await getUserById(uid)
+    if (updatedRecord && updatedRecord.status === 'active') {
+      return { dest: 'dashboard', record: updatedRecord, pendingEntry: entry }
+    }
+    return { dest: 'pending', pendingEntry: entry }
+  }
+
+  return { dest: 'pending', pendingEntry: entry }
+}
+
+export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const [user, setUser]                = useState<AppUser | null>(null)
+  const [pendingEntry, setPendingEntry] = useState<PendingUserRecord | null>(null)
+  const [isLoading, setIsLoading]      = useState(true)
+  const router     = useRouter()
+  const rolesCache = useRef<RoleRecord[]>([])
+  // Prevents onAuthStateChanged from overriding state set by active login/signup flows
+  const activeFlowRef = useRef(false)
+
+  const loadRoles = async () => {
+    if (rolesCache.current.length === 0) {
+      await seedDefaultRoles()
+      rolesCache.current = await getAllRoles()
+    }
+    return rolesCache.current
+  }
+
+  // ── Session restore on page load / tab switch ───────────────
+  useEffect(() => {
+    if (!isFirebaseConfigured()) { setIsLoading(false); return }
+
+    const unsubscribe = onAuthStateChanged(getFirebaseAuth(), async (fbUser: FirebaseUser | null) => {
+      // If an explicit login/signup flow is in progress, skip — it handles state itself
+      if (activeFlowRef.current) {
+        activeFlowRef.current = false
+        setIsLoading(false)
+        return
+      }
+
+      try {
+        if (!fbUser) {
+          setUser(null)
+          setPendingEntry(null)
+          return
+        }
+
+        const { dest, record, pendingEntry: entry } = await resolveFirebaseUserDestination(fbUser.uid)
+
+        switch (dest) {
+          case 'dashboard':
+            if (record) {
+              setUser(await buildAppUser(record, await loadRoles()))
+              setPendingEntry(null)
+              if (record.mustChangePassword) router.push('/change-password')
+            }
+            break
+
+          case 'pending':
+            // Set pendingEntry so pending-approval page can use it; NO redirect from here
+            setUser(null)
+            if (entry) setPendingEntry(entry)
+            break
+
+          case 'rejected':
+            await signOut(getFirebaseAuth())
+            setUser(null)
+            setPendingEntry(null)
+            break
+
+          case 'suspended':
+            await signOut(getFirebaseAuth())
+            setUser(null)
+            setPendingEntry(null)
+            break
+
+          case 'new':
+          default:
+            // User exists in Firebase Auth but not in our DB yet (mid-signup flow)
+            // Do NOT clear pendingEntry — signUpWithEmail may have set it already
+            setUser(null)
+            break
+        }
+      } finally {
+        setIsLoading(false)
+      }
+    })
+
+    return () => unsubscribe()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  const login = useCallback((userData: AppUser) => {
+    setUser(userData)
+    setPendingEntry(null)
+  }, [])
+
+  // ── Google Sign-In ─────────────────────────────────────────
+  const loginWithGoogle = useCallback(async () => {
+    if (!isFirebaseConfigured()) throw new Error('Firebase is not configured.')
+    activeFlowRef.current = true
+
+    try {
+      const provider = new GoogleAuthProvider()
+      const result   = await signInWithPopup(getFirebaseAuth(), provider)
+      const fbUser   = result.user
+
+      await logLoginAttempt({
+        userId: fbUser.uid, userEmail: fbUser.email || '',
+        method: 'google', success: true, timestamp: new Date().toISOString(),
+      })
+
+      const { dest, record, pendingEntry: entry } = await resolveFirebaseUserDestination(fbUser.uid)
+
+      if (dest === 'dashboard' && record) {
+        activeFlowRef.current = false  // ✅ FIX #2a: Reset flag for success path
+        setUser(await buildAppUser(record, await loadRoles()))
+        setPendingEntry(null)
+        router.push('/dashboard')
+        return
+      }
+      if (dest === 'rejected') {
+        activeFlowRef.current = false
+        await signOut(getFirebaseAuth())
+        throw new Error('تم رفض طلبك من قِبَل المدير')
+      }
+      if (dest === 'suspended') {
+        activeFlowRef.current = false
+        await signOut(getFirebaseAuth())
+        throw new Error('تم تعليق حسابك — تواصل مع المدير')
+      }
+
+      // pending or new → upsert pending entry
+      const newEntry = await upsertPendingUser({
+        id: fbUser.uid,
+        name: fbUser.displayName || fbUser.email || 'User',
+        email: fbUser.email || '',
+        photoURL: fbUser.photoURL || undefined,
+      })
+      activeFlowRef.current = false  // ✅ FIX #2b: Reset flag before redirect
+      setPendingEntry(newEntry)
+      router.push('/pending-approval')
+    } catch (err) {
+      activeFlowRef.current = false  // ✅ FIX #2c: Always reset on error
+      throw err
+    }
+  }, [router])
+
+  // ── Email/Password Sign-In ─────────────────────────────────
+  const loginWithEmail = useCallback(async (
+    email: string,
+    password: string,
+  ): Promise<{ success: boolean; error?: string }> => {
+    if (!isFirebaseConfigured()) return { success: false, error: 'Firebase غير مهيأ' }
+    activeFlowRef.current = true
+
+    try {
+      const result = await signInWithEmailAndPassword(getFirebaseAuth(), email, password)
+      const fbUser = result.user
+
+      await logLoginAttempt({
+        userId: fbUser.uid, userEmail: fbUser.email || '',
+        method: 'email', success: true, timestamp: new Date().toISOString(),
+      })
+
+      const { dest, record, pendingEntry: entry } = await resolveFirebaseUserDestination(fbUser.uid)
+
+      if (dest === 'dashboard' && record) {
+        activeFlowRef.current = false  // ✅ Reset flag
+        setUser(await buildAppUser(record, await loadRoles()))
+        setPendingEntry(null)
+        router.push('/dashboard')
+        return { success: true }
+      }
+      if (dest === 'rejected') {
+        activeFlowRef.current = false
+        await signOut(getFirebaseAuth())
+        return { success: false, error: 'تم رفض طلبك من قِبَل المدير' }
+      }
+      if (dest === 'suspended') {
+        activeFlowRef.current = false
+        await signOut(getFirebaseAuth())
+        return { success: false, error: 'تم تعليق حسابك — تواصل مع المدير' }
+      }
+      if (dest === 'pending' && entry) {
+        activeFlowRef.current = false  // ✅ Reset flag
+        setPendingEntry(entry)
+        router.push('/pending-approval')
+        return { success: true }
+      }
+
+      // New Firebase user — create pending entry
+      const newEntry = await upsertPendingUser({
+        id: fbUser.uid,
+        name: fbUser.displayName || fbUser.email || 'User',
+        email: fbUser.email || email,
+        photoURL: fbUser.photoURL || undefined,
+      })
+      activeFlowRef.current = false  // ✅ Reset flag
+      setPendingEntry(newEntry)
+      router.push('/pending-approval')
+      return { success: true }
+    } catch (err: any) {
+      activeFlowRef.current = false
+      const code = err?.code || ''
+      let msg = 'فشل تسجيل الدخول'
+      if (code === 'auth/user-not-found' || code === 'auth/invalid-credential') msg = 'البريد الإلكتروني أو كلمة المرور غير صحيحة'
+      else if (code === 'auth/wrong-password') msg = 'كلمة المرور غير صحيحة'
+      else if (code === 'auth/too-many-requests') msg = 'محاولات كثيرة — حاول لاحقاً'
+      else if (code === 'auth/user-disabled') msg = 'تم تعطيل هذا الحساب'
+      return { success: false, error: msg }
+    }
+  }, [router])
+
+  // ── Email/Password Sign-Up ─────────────────────────────────
+  const signUpWithEmail = useCallback(async (
+    name: string,
+    email: string,
+    password: string,
+  ): Promise<{ success: boolean; error?: string }> => {
+    if (!isFirebaseConfigured()) return { success: false, error: 'Firebase غير مهيأ' }
+    // Mark active flow BEFORE creating the user so onAuthStateChanged doesn't interfere
+    activeFlowRef.current = true
+    try {
+      const result = await createUserWithEmailAndPassword(getFirebaseAuth(), email, password)
+      const fbUser = result.user
+      // Send verification email (non-blocking)
+      try { await sendEmailVerification(fbUser) } catch {}
+      // Create pending entry in Firestore BEFORE redirecting
+      const entry = await upsertPendingUser({
+        id: fbUser.uid,
+        name: name.trim() || email,
+        email: fbUser.email || email,
+        photoURL: fbUser.photoURL || undefined,
+      })
+      setPendingEntry(entry)
+      await logLoginAttempt({
+        userId: fbUser.uid, userEmail: fbUser.email || '',
+        method: 'email', success: true, timestamp: new Date().toISOString(),
+      })
+      router.push('/pending-approval')
+      return { success: true }
+    } catch (err: any) {
+      activeFlowRef.current = false
+      const code = err?.code || ''
+      let msg = 'فشل إنشاء الحساب'
+      if (code === 'auth/email-already-in-use') msg = 'البريد الإلكتروني مستخدم بالفعل'
+      else if (code === 'auth/invalid-email') msg = 'بريد إلكتروني غير صالح'
+      else if (code === 'auth/weak-password') msg = 'كلمة المرور ضعيفة — 6 أحرف على الأقل'
+      return { success: false, error: msg }
+    }
+  }, [router])
+
+  // ── Password Reset ─────────────────────────────────────────
+  const sendPasswordReset = useCallback(async (email: string): Promise<void> => {
+    if (!isFirebaseConfigured()) throw new Error('Firebase غير مهيأ')
+    await sendPasswordResetEmail(getFirebaseAuth(), email)
+  }, [])
+
+  // ── Employee Code Login ────────────────────────────────────
+  const loginWithEmployeeCode = useCallback(async (
+    employeeId: string,
+    password: string,
+  ): Promise<{ success: boolean; mustChangePassword?: boolean; error?: string }> => {
+    const roles = await loadRoles()
+    const dbUser = await getUserByEmployeeCode(employeeId)
+    if (!dbUser) return { success: false, error: 'كود الموظف غير موجود' }
+    if (dbUser.status === 'suspended') return { success: false, error: 'تم تعليق حسابك — تواصل مع المدير' }
+    if (dbUser.status !== 'active') return { success: false, error: 'الحساب غير مفعّل' }
+
+    const creds = await getEmployeeCredentials(dbUser.id)
+    let passwordValid = false
+    const mustChange = creds?.mustChange ?? true
+    if (creds) {
+      const stored = creds.password
+      if (stored.startsWith('$2')) {
+        const { default: bcrypt } = await import('bcryptjs')
+        passwordValid = await bcrypt.compare(password, stored)
+      } else {
+        passwordValid = password === stored
+        if (passwordValid) await setEmployeeCredentials(dbUser.id, password, mustChange)
+      }
+    } else {
+      passwordValid = password === employeeId.toUpperCase()
+    }
+
+    if (!passwordValid) {
+      await logLoginAttempt({ userId: dbUser.id, userEmail: dbUser.email, method: 'employee_code', success: false, timestamp: new Date().toISOString() })
+      return { success: false, error: 'كلمة المرور غير صحيحة' }
+    }
+
+    setUser({ ...await buildAppUser(dbUser, roles), mustChangePassword: mustChange })
+    await logLoginAttempt({ userId: dbUser.id, userEmail: dbUser.email, method: 'employee_code', success: true, timestamp: new Date().toISOString() })
+    if (mustChange) router.push('/change-password')
+    return { success: true, mustChangePassword: mustChange }
+  }, [router])
+
+  // ── Change Password ────────────────────────────────────────
+  const changePassword = useCallback(async (employeeId: string, newPassword: string) => {
+    await setEmployeeCredentials(employeeId, newPassword, false)
+    await updateUserProfile(employeeId, { mustChangePassword: false })
+    setUser((prev) => prev ? { ...prev, mustChangePassword: false } : prev)
+  }, [])
+
+  // ── Logout ─────────────────────────────────────────────────
+  const logout = useCallback(() => {
+    setUser(null)
+    setPendingEntry(null)
+    if (isFirebaseConfigured()) signOut(getFirebaseAuth()).catch(() => {})
+    router.push('/login')
+  }, [router])
+
+  // ✅ FIX #1: Defensive check for undefined user
+  const can = useCallback((p: string): boolean => {
+    if (!user) return false
+    return user.permissions.includes(p)
+  }, [user])
+
+  const hasRole = useCallback((r: string): boolean => user?.roles.includes(r) ?? false, [user])
+
+  return (
+    <AuthContext.Provider value={{
+      user, pendingEntry, isAuthenticated: !!user, isLoading,
+      login, loginWithGoogle, loginWithEmployeeCode, loginWithEmail,
+      signUpWithEmail, sendPasswordReset, changePassword, logout,
+      can, hasRole,
+    }}>
+      {children}
+    </AuthContext.Provider>
+  )
+}
+
+export function useAuth() {
+  const ctx = useContext(AuthContext)
+  if (!ctx) throw new Error('useAuth must be used within an AuthProvider')
+  return ctx
+}
+
+export function useRole(): string | null {
+  const { user } = useAuth()
+  return user?.role || null
+}
+
+export function RequirePermission({
+  permission, children, fallback = null,
+}: {
+  permission: string
+  children: React.ReactNode
+  fallback?: React.ReactNode
+}) {
+  const { can } = useAuth()
+  if (!can(permission)) return <>{fallback}</>
+  return <>{children}</>
+}
+
+export const DEMO_EMPLOYEES = [
+  { id: '1', nameAr: 'أحمد محمد', employeeCode: 'EMP001' },
+  { id: '2', nameAr: 'سارة علي',  employeeCode: 'EMP002' },
+  { id: '3', nameAr: 'محمد خالد', employeeCode: 'EMP003' },
+] as const
