@@ -30,7 +30,15 @@ import { logLoginAttempt } from '@/lib/services/auth.service'
 import type { UserRecord } from '@/lib/repositories'
 import type { RoleRecord } from '@/lib/services/roles.service'
 import type { PendingUserRecord } from '@/lib/services/pending-users.service'
+// حماية من أخطاء includes
+if (!Array.prototype.includes) {
+  Array.prototype.includes = function(searchElement) {
+    return this.indexOf(searchElement) !== -1;
+  };
+}
 
+// حماية للـ filter
+const safeArray = (arr: any) => arr && Array.isArray(arr) ? arr : [];
 export type UserRole = 'admin' | 'head_nurse' | 'supervisor' | 'staff' | 'it_admin'
 
 export interface AppUser {
@@ -387,17 +395,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const creds = await getEmployeeCredentials(dbUser.id)
     let passwordValid = false
     const mustChange = creds?.mustChange ?? true
-    if (creds) {
-      const stored = creds.password
-      if (stored.startsWith('$2')) {
-        const { default: bcrypt } = await import('bcryptjs')
-        passwordValid = await bcrypt.compare(password, stored)
-      } else {
-        passwordValid = password === stored
-        if (passwordValid) await setEmployeeCredentials(dbUser.id, password, mustChange)
-      }
-    } else {
-      passwordValid = password === employeeId.toUpperCase()
+    
+    // استخدام API Route بدلاً من bcrypt مباشرة
+    try {
+      const response = await fetch('/api/auth/employee-credentials', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ employeeId, password }),
+      });
+      
+      const data = await response.json();
+      passwordValid = data.success;
+    } catch (error) {
+      console.error('API error:', error);
+      passwordValid = false;
+    }
+    
+    // لو كلمة المرور صح وملفش hash قديم، حدّثه
+    if (passwordValid && creds && !creds.password?.startsWith('$2')) {
+      await setEmployeeCredentials(dbUser.id, password, mustChange);
     }
 
     if (!passwordValid) {
@@ -426,8 +442,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     router.push('/login')
   }, [router])
 
-  const can     = useCallback((p: string): boolean => user?.permissions.includes(p) ?? false, [user])
-  const hasRole = useCallback((r: string): boolean => user?.roles.includes(r) ?? false, [user])
+  const can     = useCallback((p: string): boolean => user && user.permissions ? user.permissions.includes(p) : false, [user])
+const hasRole = useCallback((r: string): boolean => user && user.roles ? user.roles.includes(r) : false, [user])
 
   return (
     <AuthContext.Provider value={{
