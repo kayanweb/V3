@@ -226,43 +226,50 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!isFirebaseConfigured()) throw new Error('Firebase is not configured.')
     activeFlowRef.current = true
 
-    const provider = new GoogleAuthProvider()
-    const result   = await signInWithPopup(getFirebaseAuth(), provider)
-    const fbUser   = result.user
+    try {
+      const provider = new GoogleAuthProvider()
+      const result   = await signInWithPopup(getFirebaseAuth(), provider)
+      const fbUser   = result.user
 
-    await logLoginAttempt({
-      userId: fbUser.uid, userEmail: fbUser.email || '',
-      method: 'google', success: true, timestamp: new Date().toISOString(),
-    })
+      await logLoginAttempt({
+        userId: fbUser.uid, userEmail: fbUser.email || '',
+        method: 'google', success: true, timestamp: new Date().toISOString(),
+      })
 
-    const { dest, record, pendingEntry: entry } = await resolveFirebaseUserDestination(fbUser.uid)
+      const { dest, record, pendingEntry: entry } = await resolveFirebaseUserDestination(fbUser.uid)
 
-    if (dest === 'dashboard' && record) {
-      setUser(await buildAppUser(record, await loadRoles()))
-      setPendingEntry(null)
-      router.push('/dashboard')
-      return
+      if (dest === 'dashboard' && record) {
+        activeFlowRef.current = false  // ✅ FIX #2a: Reset flag for success path
+        setUser(await buildAppUser(record, await loadRoles()))
+        setPendingEntry(null)
+        router.push('/dashboard')
+        return
+      }
+      if (dest === 'rejected') {
+        activeFlowRef.current = false
+        await signOut(getFirebaseAuth())
+        throw new Error('تم رفض طلبك من قِبَل المدير')
+      }
+      if (dest === 'suspended') {
+        activeFlowRef.current = false
+        await signOut(getFirebaseAuth())
+        throw new Error('تم تعليق حسابك — تواصل مع المدير')
+      }
+
+      // pending or new → upsert pending entry
+      const newEntry = await upsertPendingUser({
+        id: fbUser.uid,
+        name: fbUser.displayName || fbUser.email || 'User',
+        email: fbUser.email || '',
+        photoURL: fbUser.photoURL || undefined,
+      })
+      activeFlowRef.current = false  // ✅ FIX #2b: Reset flag before redirect
+      setPendingEntry(newEntry)
+      router.push('/pending-approval')
+    } catch (err) {
+      activeFlowRef.current = false  // ✅ FIX #2c: Always reset on error
+      throw err
     }
-    if (dest === 'rejected') {
-      activeFlowRef.current = false
-      await signOut(getFirebaseAuth())
-      throw new Error('تم رفض طلبك من قِبَل المدير')
-    }
-    if (dest === 'suspended') {
-      activeFlowRef.current = false
-      await signOut(getFirebaseAuth())
-      throw new Error('تم تعليق حسابك — تواصل مع المدير')
-    }
-
-    // pending or new → upsert pending entry
-    const newEntry = await upsertPendingUser({
-      id: fbUser.uid,
-      name: fbUser.displayName || fbUser.email || 'User',
-      email: fbUser.email || '',
-      photoURL: fbUser.photoURL || undefined,
-    })
-    setPendingEntry(newEntry)
-    router.push('/pending-approval')
   }, [router])
 
   // ── Email/Password Sign-In ─────────────────────────────────
@@ -285,6 +292,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const { dest, record, pendingEntry: entry } = await resolveFirebaseUserDestination(fbUser.uid)
 
       if (dest === 'dashboard' && record) {
+        activeFlowRef.current = false  // ✅ Reset flag
         setUser(await buildAppUser(record, await loadRoles()))
         setPendingEntry(null)
         router.push('/dashboard')
@@ -301,6 +309,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return { success: false, error: 'تم تعليق حسابك — تواصل مع المدير' }
       }
       if (dest === 'pending' && entry) {
+        activeFlowRef.current = false  // ✅ Reset flag
         setPendingEntry(entry)
         router.push('/pending-approval')
         return { success: true }
@@ -313,6 +322,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         email: fbUser.email || email,
         photoURL: fbUser.photoURL || undefined,
       })
+      activeFlowRef.current = false  // ✅ Reset flag
       setPendingEntry(newEntry)
       router.push('/pending-approval')
       return { success: true }
@@ -426,7 +436,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     router.push('/login')
   }, [router])
 
-  const can     = useCallback((p: string): boolean => user?.permissions.includes(p) ?? false, [user])
+  // ✅ FIX #1: Defensive check for undefined user
+  const can = useCallback((p: string): boolean => {
+    if (!user) return false
+    return user.permissions.includes(p)
+  }, [user])
+
   const hasRole = useCallback((r: string): boolean => user?.roles.includes(r) ?? false, [user])
 
   return (

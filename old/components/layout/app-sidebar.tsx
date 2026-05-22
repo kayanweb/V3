@@ -57,6 +57,8 @@ export function AppSidebar() {
 
   const getFilteredItems = (items: typeof navigationConfig[0]['items']) => {
     if (!mounted) return items
+    // Defensive check: ensure `can` function exists before calling it
+    if (!can) return items
     return items.filter((item) => !item.permission || can(item.permission))
   }
 
